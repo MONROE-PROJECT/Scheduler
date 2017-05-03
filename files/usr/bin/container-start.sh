@@ -22,6 +22,7 @@ if [ ! -z "$IS_INTERNAL" ]; then
   # redirect output to log file
   exec > $BASEDIR/start.log 2>&1
 else
+  mkdir -p $BASEDIR/$SCHEDID
   exec >> $BASEDIR/$SCHEDID/start.log 2>&1
 fi
 
