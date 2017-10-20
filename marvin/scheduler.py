@@ -205,7 +205,8 @@ class Scheduler:
                            device.get('Iccid'),
                            0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0))
 
-        c.execute(sql_extras);
+        for line in sql_extras.split(";"):
+            c.execute(line);
         self.db().commit()
 
 
@@ -497,7 +498,10 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         c.execute("SELECT DISTINCT o.name FROM schedule s, experiments e, owners o WHERE s.expid=e.id AND e.ownerid=o.id AND s.stop > ? - 604800 GROUP BY e.ownerid", (now,))
         distinct=c.fetchall()
         tasks["distinct active users (7d)"]=[x[0] for x in distinct] if distinct is not None else 0;
+        c.execute("select status, count(*) as cnt from schedule where start < ? - (24*3600) group by status order by cnt desc", (now,))
+        tasks["status codes (1d)"]=dict([(x[0],x[1]) for x in c.fetchall()])
         activity["schedules"]=tasks
+        
         return activity
 
     def get_quota_journal(self, userid=None, iccid=None, nodeid=None, maxage=0):
