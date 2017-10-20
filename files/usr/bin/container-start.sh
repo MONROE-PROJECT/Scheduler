@@ -102,6 +102,7 @@ CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
        --cap-add NET_RAW \
        -v $BASEDIR/$SCHEDID.conf:/monroe/config:ro \
        -v /etc/nodeid:/nodeid:ro \
+       -v /tmp/dnsmasq-servers-netns-monroe.conf:/dns:ro \
        $MOUNT_DISK \
        $TSTAT_DISK \
        $CONTAINER $OVERRIDE_PARAMETERS)

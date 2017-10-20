@@ -1,6 +1,6 @@
 import java.text.SimpleDateFormat
 jobName = "python-marvin"
-version = "0.1.66"
+version = "0.1.67"
 build_dir = "deb_dist"
 
 @Library('jenkins-shared') _
