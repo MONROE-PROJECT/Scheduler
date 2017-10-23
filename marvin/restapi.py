@@ -473,7 +473,8 @@ class User:
         data = web.input()
         if "name" in data and "ssl" in data and "role" in data:
             userid, errmsg = rest_api.scheduler.create_user(
-                data['name'].strip(), data['ssl'].strip(), data['role'].strip())
+                data['name'].strip(), data['ssl'].strip(),
+                data['role'].strip(), data.get('project','').strip())
             if userid is not None:
                 web.ctx.status = '201 Created'
                 web.header('Location', "/user/%i" % userid)
@@ -483,7 +484,7 @@ class User:
                 return error(errmsg)
         else:
             web.ctx.status = '400 Bad Request'
-            return error("Parameters missing (name, ssl, role).")
+            return error("Parameters missing (name, ssl, role), optional: project.")
 
     def DELETE(self, userid):
         role = rest_api.get_role(web.ctx)

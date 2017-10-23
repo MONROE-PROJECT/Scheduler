@@ -253,8 +253,9 @@ CREATE TABLE IF NOT EXISTS node_interface (nodeid INTEGER NOT NULL,
     status TEXT NOT NULL, heartbeat INTEGER,
     PRIMARY KEY (nodeid, imei, iccid));
 CREATE TABLE IF NOT EXISTS owners (id INTEGER PRIMARY KEY ASC,
-    name TEXT UNIQUE NOT NULL, ssl_id TEXT UNIQUE NOT NULL,
-    role TEXT NOT NULL);
+    name TEXT NOT NULL, ssl_id TEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL, project TEXT);
+CREATE UNIQUE INDEX IF NOT EXISTS k_owners ON owners(name, project);
 CREATE TABLE IF NOT EXISTS quota_owner_time (ownerid INTEGER PRIMARY KEY,
     current INTEGER NOT NULL, reset_value INTEGER NOT NULL,
     reset_date INTEGER NOT NULL, last_reset INTEGER,
@@ -574,15 +575,15 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                                  month=(today.month % 12),
                                  day=1).strftime('%s')
 
-    def create_user(self, name, ssl, role):
+    def create_user(self, name, ssl, role, project=None):
         c = self.db().cursor()
         now = int(time.time())
         first_of_next_month = self.first_of_next_month()
 
         try:
             c.execute(
-                "INSERT OR REPLACE INTO owners VALUES (NULL, ?, ?, ?)",
-                (name, ssl, role))
+                "INSERT OR REPLACE INTO owners VALUES (NULL, ?, ?, ?, ?)",
+                (name, ssl, role, project))
             userid = c.lastrowid
             c.execute(
                 "INSERT OR REPLACE INTO quota_owner_time "
