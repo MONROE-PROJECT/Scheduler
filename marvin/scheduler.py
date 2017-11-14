@@ -168,9 +168,9 @@ class Scheduler:
                              ('Status', 'type')]:
                 value = node.get(key)
                 if value is not None:
-                    types.append((tag, value.lower()))
+                    types.append((tag, value.lower().strip()))
             if node.get('Country'):
-                address = "%s - %s %s" % (node.get('Address',''), node.get('Country',''), node.get('PostCode',''))
+                address = "%s - %s %s" % (node.get('Address','').strip(), node.get('Country',''), node.get('PostCode','').strip())
                 types.append(('address', address))
 
             c.execute("DELETE FROM node_type WHERE nodeid = ? AND volatile = 1",
