@@ -1265,18 +1265,16 @@ SELECT DISTINCT * FROM (
 
         def insert_task (node, script, keypairs):
             deployment_opts['script'] = script
-            private, public = None, None
             if keypairs:
                 private, public = keypairs.pop()
                 deployment_opts['_ssh.private'] = private
                 deployment_opts['ssh.public'] = public
+                c.execute("INSERT INTO key_pairs VALUES "
+                          "(?, ?, ?)", (private, public, i[1]))
             c.execute("INSERT INTO schedule VALUES "
                       "(NULL, ?, ?, ?, ?, ?, ?, ?)",
                       (node, expid, i[0], i[1], 'defined',
                        shared, json.dumps(deployment_opts)))
-            if private:
-                c.execute("INSERT INTO key_pairs VALUES "
-                          "(?, ?, ?)", (private, public, i[1]))
 
         try:
             available={}
