@@ -1265,6 +1265,7 @@ SELECT DISTINCT * FROM (
 
         def insert_task (node, script, keypairs):
             deployment_opts['script'] = script
+            private, public = None, None
             if keypairs:
                 private, public = keypairs.pop()
                 deployment_opts['_ssh.private'] = private
@@ -1273,7 +1274,7 @@ SELECT DISTINCT * FROM (
                       "(NULL, ?, ?, ?, ?, ?, ?, ?)",
                       (node, expid, i[0], i[1], 'defined',
                        shared, json.dumps(deployment_opts)))
-            if keypairs:
+            if private:
                 c.execute("INSERT INTO key_pairs VALUES "
                           "(?, ?, ?)", (private, public, i[1]))
 
