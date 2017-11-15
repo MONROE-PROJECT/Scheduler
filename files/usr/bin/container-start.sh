@@ -95,11 +95,14 @@ if [ ! -z "$IS_SSH" ]; then
     OVERRIDE_PARAMETERS=" /bin/bash /usr/bin/monroe-sshtunnel-client.sh "
 fi
 
+cp /etc/resolv.conf $BASEDIR/$SCHEDID/resolv.conf.tmp
+
 CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
        --name=monroe-$SCHEDID \
        --net=container:$MONROE_NOOP \
        --cap-add NET_ADMIN \
        --cap-add NET_RAW \
+       -v $BASEDIR/$SCHEDID/resolv.conf.tmp:/etc/resolv.conf \
        -v $BASEDIR/$SCHEDID.conf:/monroe/config:ro \
        -v /etc/nodeid:/nodeid:ro \
        -v /tmp/dnsmasq-servers-netns-monroe.conf:/dns:ro \
