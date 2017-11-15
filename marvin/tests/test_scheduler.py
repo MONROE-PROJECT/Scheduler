@@ -91,7 +91,7 @@ class SchedulerTestCase(unittest.TestCase):
         self.assertEqual(r[2]['available'], 0)
         # require node pair (not available)
         r = self.sch.allocate(1,'test', now + 500, 500, 1, 'status:test,-status:foo,-status:bar', ['head','tail'], {})
-        self.assertEqual(r[2]['available'], 0)
+        self.assertEqual(r[1], 'Node count must be even for paired nodes.')
         # too soon
         r = self.sch.allocate(1,'test', now, 500, 1, 'status:test', ['...'], {})
         self.assertIsNone(r[0])
@@ -179,16 +179,16 @@ class SchedulerTestCase(unittest.TestCase):
         self.sch.set_storage_quota(1, 500)
         r = self.sch.allocate(1,'test', now + 500, 600, 1, 'status:test', ['...'], {})
         self.assertEqual(r[2]['required'], 600)
-        r = self.sch.allocate(1,'test', now + 500, 500, 1, 'status:test', ['...'],
-                              {'traffic':200})
-        self.assertEqual(r[2]['required'], 600)
+        r = self.sch.allocate(1,'test', now + 7500, 500, 1, 'status:test', ['...'],
+                              {'traffic':600})
+        self.assertEqual(r[2]['required'], 1200)
         r = self.sch.allocate(1,'test', now + 500, 500, 1, 'status:test', ['...'],
                               {'storage':600})
         self.assertEqual(r[2]['required'], 600)
 
     def test_14_journal(self):
         r = self.sch.get_quota_journal(userid=1)
-        self.assertEqual(len(r), 39)
+        self.assertEqual(len(r), 21)
 
     def test_15_reports(self):
         r = self.sch.get_schedule(schedid=1)

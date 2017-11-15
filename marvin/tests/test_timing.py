@@ -45,25 +45,25 @@ class TimingTestCase(unittest.TestCase):
     def test_01_lots_of_recurring(self):
         userid = self.sch.get_users()[0]['id']
         now = time.time()
-        until = self.sch.get_scheduling_period()[1]
+        until = self.sch.get_scheduling_period()[1] 
         print
         print "creating 25x2 recurring experiments ..."
         for nodeid in xrange(1,25):
             before = time.time()
             r = self.sch.allocate(userid, 'test', now + 500, 60, 1,
-                                  'status:test', '...',
+                                  'status:test', ['...'],
                                   {'recurrence': 'simple',
-                                   'period': 3600,
+                                   'period': 21600,
                                    'until': until})
             print r
             self.assertEqual(r[2]['nodecount'], 1)
-            self.assertEqual(r[2]['intervals'], 744)
-            r = self.sch.allocate(userid, 'test', now + 750, 60, 1, 'status:test', '...',
+            self.assertEqual(r[2]['intervals'], 124)
+            r = self.sch.allocate(userid, 'test', now + 750, 60, 1, 'status:test', ['...'],
                                   {'recurrence': 'simple',
-                                   'period': 3600,
+                                   'period': 21600,
                                    'until': until})
             self.assertEqual(r[2]['nodecount'], 1)
-            self.assertEqual(r[2]['intervals'], 744)
+            self.assertEqual(r[2]['intervals'], 124)
             after = time.time()
             print nodeid * 2, after-before, "seconds."
             self.assertLess(after-before, 10)  # completes in 10 seconds or less
