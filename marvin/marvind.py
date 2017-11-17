@@ -147,7 +147,8 @@ class SchedulingClient:
         starthook = self.starthook + " " + id
         stophook = self.stophook + " " + id
 
-        timestamp = sched['start']
+        starttime = sched['start']
+        stoptime = sched['stop']
         deploy_conf = dict(sched['deployment_options'])
         if not 'script' in deploy_conf:
             deploy_conf.update({'script': task['script']})
@@ -187,9 +188,9 @@ class SchedulingClient:
             return
 
         now  = int(time.time())
-        if timestamp > now + 60:
+        if starttime > now + 60:
             timestring = datetime.fromtimestamp(
-                timestamp).strftime(
+                starttime).strftime(
                     AT_TIME_FORMAT)  # we are losing the seconds
             log.debug("Trying to set at using %s" % timestring)
             pro = Popen(["at", timestring], stdout=PIPE, stdin=PIPE)
@@ -202,7 +203,7 @@ class SchedulingClient:
                     (id, pro.returncode))
                 self.set_status(id, "failed; atq exit code %i" % pro.returncode)
                 # TODO: handle tasks that failed scheduling
-        else:
+        elif stoptime > now + 60:
             log.warning(
                 "Task %s has a past start time. Running %s" %
                 (id, starthook))
@@ -226,12 +227,13 @@ class SchedulingClient:
                     self.set_status(id, "failed; docker run exit code 127: entry point not found?")
                 else:
                     self.set_status(id, "failed; start hook exit code %i." % pro.returncode)
+        else:
+            self.set_status(id, "failed; deployment time exceeded stop time, skipped start hook")
 
-        timestamp = sched['stop']
         now  = int(time.time())
-        if timestamp > now + 60:
+        if stoptime > now + 60:
           timestring = datetime.fromtimestamp(
-              timestamp).strftime(
+              stoptime).strftime(
                   AT_TIME_FORMAT)  # we are losing the seconds
           log.debug("Trying to set at using %s" % timestring)
           pro = Popen(["at", timestring], stdout=PIPE, stdin=PIPE)
