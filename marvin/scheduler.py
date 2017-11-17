@@ -502,8 +502,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         c.execute("SELECT DISTINCT o.name, o.project, count(s.id) as tasks FROM schedule s, experiments e, owners o WHERE s.expid=e.id AND e.ownerid=o.id AND s.stop > ? - 604800 GROUP BY e.ownerid", (now,))
         distinct=c.fetchall()
         tasks["distinct active users (7d)"]=[{"name":x[0], "project":x[1], "tasks":x[2]} for x in distinct] if distinct is not None else 0;
-        c.execute("select status, count(*) as cnt from schedule where start > ? - (24*3600) group by status order by cnt desc", (now,))
-        tasks["status codes (1d)"]=dict([(x[0],x[1]) for x in c.fetchall()])
+        c.execute("select status, count(*) as cnt from schedule where start > ? group by status order by cnt desc", (now - 7*24*3600,))
+        tasks["status codes (7d)"]=dict([(x[0],x[1]) for x in c.fetchall()])
         activity["schedules"]=tasks
         
         return activity
