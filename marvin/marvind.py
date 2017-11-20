@@ -533,7 +533,7 @@ class SchedulingClient:
                               "interfaces": interfaces},
                         cert=self.cert,
                         verify=False,
-                        timeout=1)
+                        timeout=5)
                     if result.status_code == 200 and maintenance != "1":
                         result = result.json()
                         if type(result) is dict: # transition to changed API
