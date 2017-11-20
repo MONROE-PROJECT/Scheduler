@@ -404,7 +404,7 @@ class Experiment:
                 web.ctx.status = '404 Not Found'
                 return error("Could not find experiment id.")
 
-    def POST(self, ignored):
+    def PUT(self, path):
         uid, role, name = rest_api.get_user(web.ctx)
         if role not in [scheduler.ROLE_USER, scheduler.ROLE_ADMIN]:
             web.ctx.status = '401 Unauthorized'
@@ -430,7 +430,7 @@ class Experiment:
             return error("Only user %i can do this" % uid)
         else:
             name=params.get('name')
-            count = rest_api.scheduler.merge_experiment(
+            count = rest_api.scheduler.merge_experiments(
                         expid_into, expid2, name)
             return error("Merged %s tasks from experiment %s into %s" % (count, expid2, expid_into))
 
