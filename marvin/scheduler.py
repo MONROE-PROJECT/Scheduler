@@ -1367,6 +1367,18 @@ SELECT DISTINCT * FROM (
             log.error(er.message)
             return None, "Task creation failed.", {'error': er.message}
 
+    def merge_experiments(self, expid_into, expid2, name):
+        c = self.db().cursor()
+        c.execute("UPDATE schedule SET expid = ? WHERE expid = ?",
+                  (expid_into, expid2))
+        rows = c.rowcount
+        c.execute("UPDATE experiments SET name = ? WHERE expid = ?",
+                  (name, expid_into))
+        c.execute("UPDATE experiments SET status = 'merged' WHERE expid = ?",
+                  (expid2,))
+        self.db().commit()
+        return rows
+
     def delete_experiment(self, expid):
         c = self.db().cursor()
         c.execute("SELECT DISTINCT status FROM schedule WHERE expid = ?",
