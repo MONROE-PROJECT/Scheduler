@@ -79,6 +79,7 @@ only for users (role: user)
 
   * POST experiments      (+experiment and scheduling parameters)
   * DELETE experiments/#  (delete an experiment and its schedule entries)
+  * PUT experiments/#/#  [name=...]   (merge tasks from expid2 into expid1)
 
 only for administrators (role: admin)
 
