@@ -387,7 +387,7 @@ class Experiment:
 
         if path in ["", "/"]:
             web.ctx.status = '400 Bad Request'
-            return error("Taskid missing.")
+            return error("Experiment id missing.")
         expid=path.split("/")[1]
         experiments = rest_api.scheduler.get_experiments(expid=expid)
         if role != scheduler.ROLE_ADMIN and \
@@ -403,6 +403,37 @@ class Experiment:
             else:
                 web.ctx.status = '404 Not Found'
                 return error("Could not find experiment id.")
+
+    def POST(self, ignored):
+        uid, role, name = rest_api.get_user(web.ctx)
+        if role not in [scheduler.ROLE_USER, scheduler.ROLE_ADMIN]:
+            web.ctx.status = '401 Unauthorized'
+            return error("You'd have to be a user to do that")
+        if path in ["", "/"]:
+            web.ctx.status = '400 Bad Request'
+            return error("Experiment id missing.")
+        path = path.split("/")
+        if len(path) < 2:
+            web.ctx.status = '400 Bad Request'
+            return error("Second experiment id missing.")
+        expid_into=path[1]
+        expid2=path[2]
+        try:
+            params = json.loads(web.data())
+        except:
+            params = web.input()
+
+        exp_into = rest_api.scheduler.get_experiments(expid=expid_into)
+        exp2 = rest_api.scheduler.get_experiments(expid=expid2)
+        if (exp_into[0]['ownerid'] != uid) or (exp2[0]['ownerid'] != uid):
+            web.ctx.status = '401 Unauthorized'
+            return error("Only user %i can do this" % uid)
+        else:
+            name=params.get('name')
+            count = rest_api.scheduler.merge_experiment(
+                        expid_into, expid2, name)
+            return error("Merged %s tasks from experiment %s into %s" % (count, expid2, expid_into))
+
 
 # USER ######################################################################
 

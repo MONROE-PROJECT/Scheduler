@@ -1372,8 +1372,9 @@ SELECT DISTINCT * FROM (
         c.execute("UPDATE schedule SET expid = ? WHERE expid = ?",
                   (expid_into, expid2))
         rows = c.rowcount
-        c.execute("UPDATE experiments SET name = ? WHERE expid = ?",
-                  (name, expid_into))
+        if name:
+            c.execute("UPDATE experiments SET name = ? WHERE expid = ?",
+                      (name, expid_into))
         c.execute("UPDATE experiments SET status = 'merged' WHERE expid = ?",
                   (expid2,))
         self.db().commit()
