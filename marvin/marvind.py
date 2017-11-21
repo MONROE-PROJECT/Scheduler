@@ -398,9 +398,9 @@ class SchedulingClient:
             schedid = str(sched["id"])   # scheduling id. schedid n:1 taskid
             expid = str(sched["expid"])
             code = sched["status"].split(";")[0]
-            if code in ['failed', 'finished', 'stopped', 'aborted', 'canceled']:
+            if code in ['started', 'restarted', 'failed', 'finished', 'stopped', 'aborted', 'canceled']:
                 log.debug(
-                    "Not scheduling finished or aborted task "
+                    "Not scheduling started, finished or aborted task "
                     "(Expid %s, scheduling id %s)" % (expid, schedid))
                 continue
 
