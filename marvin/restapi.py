@@ -425,6 +425,9 @@ class Experiment:
 
         exp_into = rest_api.scheduler.get_experiments(expid=expid_into)
         exp2 = rest_api.scheduler.get_experiments(expid=expid2)
+        if exp_into is None or exp2 is None:
+            web.ctx.status = '404 Not found'
+            return error("Experiment does not exist.")
         if (exp_into[0]['ownerid'] != uid) or (exp2[0]['ownerid'] != uid):
             web.ctx.status = '401 Unauthorized'
             return error("Only user %i can do this" % uid)
