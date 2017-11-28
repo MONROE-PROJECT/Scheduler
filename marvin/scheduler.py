@@ -945,7 +945,10 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             query += """
 AND n.id NOT IN (
     SELECT DISTINCT nodeid FROM schedule s
-    WHERE shared = 0 AND NOT ((s.stop + ? < ?) OR (s.start - ? > ?))
+    WHERE 
+      s.status NOT IN ('stopped', 'finished', 'canceled', 'aborted') 
+      AND NOT ((s.stop + ? < ?) OR (s.start - ? > ?))
+      AND not s.status like 'failed%'
 )
 AND n.heartbeat > ? """
 
@@ -1028,7 +1031,6 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         where = "WHERE 1==1"
         if selection is not None:
             where += " AND nodeid IN ('" + "', '".join(nodes) + "') \n"
-        where += " AND status NOT IN ('stopped', 'finished', 'canceled', 'aborted') AND status NOT LIKE 'failed%' \n" 
         type_require_ = [x[0].split(":") for x in type_require]
         type_reject_ = [x[0].split(":") for x in type_reject]
 
@@ -1038,6 +1040,9 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         for type_and in type_reject:
             where += "  AND nodeid NOT IN (SELECT nodeid FROM node_type " \
                      "  WHERE tag = ? AND type = ?)"
+        where += " AND status NOT IN ('stopped', 'finished', 'canceled', 'aborted') " \
+                 " AND status NOT LIKE 'failed%' \n" 
+
         query = """
 SELECT DISTINCT * FROM (
     SELECT start - ? AS t FROM schedule %s UNION
