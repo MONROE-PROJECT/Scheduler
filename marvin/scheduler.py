@@ -1028,6 +1028,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         where = "WHERE 1==1"
         if selection is not None:
             where += " AND nodeid IN ('" + "', '".join(nodes) + "') \n"
+        where += " AND status NOT IN ('stopped', 'finished', 'canceled', 'aborted') AND status NOT LIKE 'failed%' \n" 
         type_require_ = [x[0].split(":") for x in type_require]
         type_reject_ = [x[0].split(":") for x in type_reject]
 
