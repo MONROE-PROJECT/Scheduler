@@ -428,7 +428,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         c.execute("""UPDATE node_interface SET quota_current = quota_reset_value,
                                                quota_reset_date = ?,
                                                quota_last_reset = ?
-                     WHERE quota_reset_date < ?""",
+                     WHERE quota_reset_date < ? AND quota_reset_value > 0""",
                   (self.first_of_next_month(), now, now))
         self.db().commit()
 
@@ -1436,6 +1436,6 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
             else:
                 mac = iface.get('mac')
                 if mac is not None:
-                    c.execute("INSERT OR REPLACE INTO node_interface (?,?,?,?,?,?,?,?,?,?,?,?)", 
+                    c.execute("INSERT OR REPLACE INTO node_interface VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", 
                               (nodeid, mac, '', '', '', 0, 0, 0, 0, 0, 'current', seen))
         self.db().commit()
