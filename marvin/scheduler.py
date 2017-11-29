@@ -754,6 +754,9 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 c.execute(
                     "UPDATE schedule SET status = ? WHERE id = ?",
                     (status, schedid))
+                if status in ('finished', 'stopped', 'aborted', 'canceled') or 'failed' in status:
+                    c.execute(
+                        "UPDATE schedule SET shared = 1 WHERE id = ?", (schedid,))
                 self.db().commit()
                 if c.rowcount == 1:
                     return True, "Ok."
@@ -946,9 +949,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 AND n.id NOT IN (
     SELECT DISTINCT nodeid FROM schedule s
     WHERE 
-      s.status NOT IN ('stopped', 'finished', 'canceled', 'aborted') 
-      AND NOT ((s.stop + ? < ?) OR (s.start - ? > ?))
-      AND not s.status like 'failed%'
+      s.shared = 0 
+      AND (NOT ((s.stop + ? < ?) OR (s.start - ? > ?)))
 )
 AND n.heartbeat > ? """
 
@@ -1040,9 +1042,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         for type_and in type_reject:
             where += "  AND nodeid NOT IN (SELECT nodeid FROM node_type " \
                      "  WHERE tag = ? AND type = ?)"
-        where += " AND status NOT IN ('stopped', 'finished', 'canceled', 'aborted') " \
-                 " AND status NOT LIKE 'failed%' \n" 
-
+        where += " AND shared = 0 "
         query = """
 SELECT DISTINCT * FROM (
     SELECT start - ? AS t FROM schedule %s UNION
@@ -1405,13 +1405,13 @@ SELECT DISTINCT * FROM (
             return 1, "Ok. Archived experiment.", {}
         else:
             c.execute("""
-UPDATE schedule SET status = ? WHERE
+UPDATE schedule SET status = ?, shared = 1 WHERE
     expid = ? AND
     status IN ('defined')
                       """, ('canceled', expid))
             canceled = c.rowcount
             c.execute("""
-UPDATE schedule SET status = ? WHERE expid = ? AND
+UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
     status IN ('deployed', 'requested', 'started', 'delayed', 'redeployed', 'restarted', 'running') OR status LIKE 'delayed%'
                       """, ('aborted', expid))
             aborted = c.rowcount
@@ -1433,9 +1433,3 @@ UPDATE schedule SET status = ? WHERE expid = ? AND
             quota = host
             c.execute("UPDATE node_interface SET heartbeat=?, quota_current=quota_reset_value-? where iccid=?", (seen, quota, iccid))
         self.db().commit()
-
-    def update_entry(self, schedid, status):
-        c = self.db().cursor()
-        c.execute("UPDATE schedule SET status=? where id=?", (status, schedid))
-        self.db().commit()
-        return c.rowcount
