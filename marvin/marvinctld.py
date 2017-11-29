@@ -28,8 +28,6 @@ log = logging.getLogger('marvinctld')
 log.addHandler(WatchedFileHandler(config['log']['file']))
 log.setLevel(config['log']['level'])
 
-print sys.path
-
 from geniam import FederationAM
 from restapi import RestAPI
 from scheduler import Scheduler
