@@ -1427,9 +1427,15 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
         status = NODE_MAINTENANCE if maintenance == '1' else NODE_ACTIVE
         c.execute("UPDATE nodes SET heartbeat=?, status=? where id=? and status!=? and status!=?", (seen, status, nodeid, NODE_DISABLED, NODE_MISSING))
         for iface in interfaces:
-            iccid = iface.get('iccid',0)
-            host  = int(iface.get('host') or 0)
-            netns = int(iface.get('netns') or 0)
-            quota = host
-            c.execute("UPDATE node_interface SET heartbeat=?, quota_current=quota_reset_value-? where iccid=?", (seen, quota, iccid))
+            iccid = iface.get('iccid')
+            if iccid is not None:
+                host  = int(iface.get('host') or 0)
+                netns = int(iface.get('netns') or 0)
+                quota = host
+                c.execute("UPDATE node_interface SET heartbeat=?, quota_current=quota_reset_value-? where iccid=?", (seen, quota, iccid))
+            else:
+                mac = iface.get('mac')
+                if mac is not None:
+                    c.execute("INSERT OR REPLACE INTO node_interface (?,?,?,?,?,?,?,?,?,?,?,?)", 
+                              (nodeid, mac, '', '', '', 0, 0, 0, 0, 0, 'current', seen))
         self.db().commit()
