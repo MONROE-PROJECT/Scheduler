@@ -1215,7 +1215,7 @@ SELECT DISTINCT * FROM (
             type_require, type_reject = self.parse_node_types(nodetypes)
             if type_require is None:
                 error_message = type_reject
-            return None, error_message, {}
+                return None, error_message, {}
 
         for script in scripts:
             if DEPLOYMENT_RE.match(script) is None:
