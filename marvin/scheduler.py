@@ -118,6 +118,7 @@ class SchedulerException(Exception):
 
 
 class Scheduler:
+    node_pairs = None
 
     def __init__(self, refresh=False):
         self.check_db(refresh)
@@ -907,6 +908,16 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 segments.append(t)
         return segments
 
+    def get_node_pairs(self):
+        if self.node_pairs is None:
+            c = self.db().cursor()
+            c.execute("SELECT * from node_pair")
+            self.node_pairs = c.fetchall()
+            heads = dict(self.node_pairs)
+            tails = {x[1]:x[0] for x in self.node_pairs}
+            self.heads = heads
+            self.tails = tails
+        return self.heads, self.tails
 
     def get_available_nodes(self, nodes, type_require,
                             type_reject, start, stop,
@@ -925,6 +936,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         now = int(time.time())
         if now - last_sync > 3600:
             self.sync_inventory()
+            self.node_pairs = None
 
         c = self.db().cursor()
 
@@ -978,17 +990,15 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         noderows = c.fetchall()
         nodes = [x[0] for x in noderows if x[1] is not None]
 
-        c.execute("SELECT * from node_pair") # TODO: cache this, when calling sync
-        pairrows = c.fetchall()
-        heads = dict(pairrows)
+        heads, tails = self.get_node_pairs()
 
+        # NOTE: with preselection, rest_api always sets head=tail=True, pair=false 
         if pair:
             headn = filter(lambda x: x in heads and heads[x] in nodes, nodes)
             tailn = [heads[x] for x in headn]
-            return headn, tailn    # sorted
+            return headn, tailn  # sorted
         else:
             if tail is False:
-                tails = {x[1]:x[0] for x in pairrows}
                 nodes = filter(lambda x: x not in tails, nodes)
             if head is False:
                 nodes = filter(lambda x: x not in heads, nodes)
@@ -1199,10 +1209,14 @@ SELECT DISTINCT * FROM (
                    {'max_data': POLICY_TASK_MAX_TRAFFIC,
                     'requested': req_traffic}
 
-        type_require, type_reject = self.parse_node_types(nodetypes)
-        if type_require is None:
-            error_message = type_reject
+        if preselection:
+            type_require, type_reject = [],[]
+        else:
+            type_require, type_reject = self.parse_node_types(nodetypes)
+            if type_require is None:
+                error_message = type_reject
             return None, error_message, {}
+
         for script in scripts:
             if DEPLOYMENT_RE.match(script) is None:
                 if ['type:deployed'] in type_require:
@@ -1235,17 +1249,26 @@ SELECT DISTINCT * FROM (
         until = int(opts.get('until', 0))
 
         num_intervals = len(intervals)
-        total_num_interfaces = nodecount # 1 interface per node
-        if pair:
-          total_num_interfaces *= 1.5    # 2+1 interface per node pair
-        elif head:
-          total_num_interfaces *= 2      # 2 interfaces per node
-        elif not head and not tail:
-          total_num_interfaces *= 3      # 3 interfaces per node (old APU1)
-        # TODO: handle preselection of nodes
+
+        if preselection is None:
+            total_num_interfaces = nodecount # 1 interface per node
+            if pair:
+              total_num_interfaces *= 1.5    # 2+1 interface per node pair
+            elif head:
+              total_num_interfaces *= 2      # 2 interfaces per node
+            elif not head and not tail:
+              total_num_interfaces *= 3      # 3 interfaces per node (old APU1)
+            total_traffic = req_traffic * total_num_interfaces * num_intervals
+            if u['quota_data'] < total_traffic:
+                return None, "Insufficient data quota.", \
+                       {'quota_data': u['quota_data'],
+                        'required': total_traffic,
+                        'requested': req_traffic,
+                        'interfaces': total_num_interfaces
+                       }
+
         total_time = duration * nodecount * num_intervals
         total_storage = req_storage * nodecount * num_intervals
-        total_traffic = req_traffic * total_num_interfaces * num_intervals
 
         if u['quota_time'] < total_time:
             return None, "Insufficient time quota.", \
@@ -1255,10 +1278,6 @@ SELECT DISTINCT * FROM (
             return None, "Insufficient storage quota.", \
                    {'quota_storage': u['quota_storage'],
                     'required': total_storage}
-        if u['quota_data'] < total_traffic:
-            return None, "Insufficient data quota.", \
-                   {'quota_data': u['quota_data'],
-                    'required': total_traffic}
 
         if len(scripts) == 2:
             pair = True
@@ -1288,11 +1307,13 @@ SELECT DISTINCT * FROM (
         try:
             available={}
             avl_tails={}
+            total_num_interfaces = 0
+            headnodes, tailnodes = self.get_node_pairs() 
+
             for inum, i in enumerate(intervals):
                 nodes, tails = self.get_available_nodes(
                                    preselection, type_require, type_reject,
                                    i[0], i[1], head=head, tail=tail, pair=pair)
-
                 if len(nodes) < nodecount:
                     self.db().rollback()
                     if i[0] == -1:
@@ -1312,8 +1333,20 @@ SELECT DISTINCT * FROM (
                     return None, msg, data
                 nodes = nodes[:nodecount]
                 tails = tails[:nodecount]
+                total_num_interfaces += len([n for n in nodes if n in headnodes]) + len(nodes) + len(tails)
+
                 available[i]=nodes
                 avl_tails[i]=tails
+
+            if preselection:
+                total_traffic = req_traffic * total_num_interfaces * num_intervals
+                if u['quota_data'] < total_traffic:
+                    return None, "Insufficient data quota.", \
+                           {'quota_data': u['quota_data'],
+                            'required': total_traffic,
+                            'requested': req_traffic,
+                            'interfaces': total_num_interfaces
+                           }
 
             keypairs = [self.generate_key_pair() for x in xrange(apucount * len(intervals))] if ssh else None
             now = int(time.time())
@@ -1357,8 +1390,8 @@ SELECT DISTINCT * FROM (
                           (u['quota_data'] - total_traffic, ownerid))
             c.execute("""INSERT INTO quota_journal SELECT ?, "quota_owner_data",
                              ownerid, NULL, current,
-                             "experiment #%s requested %i bytes (%i %s, %i intervals)" FROM
-                             quota_owner_data WHERE ownerid = ?""" % (expid, total_traffic, nodecount, node_or_pairs, num_intervals),
+                             "experiment #%s requested %i bytes (%i %s, %i intervals, %i interfaces)" FROM
+                             quota_owner_data WHERE ownerid = ?""" % (expid, total_traffic, nodecount, node_or_pairs, num_intervals, total_num_interfaces),
                              (now, ownerid))
             self.db().commit()
             return expid, "Created experiment %s on %s %s " \
