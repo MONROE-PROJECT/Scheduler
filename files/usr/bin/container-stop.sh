@@ -12,6 +12,7 @@ USAGEDIR=/monroe/usage/netns
 if [ -f $BASEDIR/$SCHEDID.conf ]; then
   CONFIG=$(cat $BASEDIR/$SCHEDID.conf);
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
+  STARTTIME=$(echo $CONFIG | jq -r '.start // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
@@ -42,6 +43,12 @@ if [ -d $BASEDIR/$SCHEDID ]; then
     echo "CID not found for $CONTAINER." > $STATUSDIR/$SCHEDID/container.log;
   fi
   echo ""
+
+  if [ ! -z "$STARTTIME" ]; then
+    echo "Retrieving dmesg events:"
+    dmesg|awk '{time=0 + substr($1,2,length($1)-2); if (time > '$STARTTIME') print $0}'
+    echo ""
+  fi
 
   echo -n "Syncing traffic statistics... "
   monroe-user-experiments;
