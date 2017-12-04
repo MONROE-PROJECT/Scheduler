@@ -203,11 +203,11 @@ class Scheduler:
                           (DEVICE_CURRENT, device.get('DeviceId'), device.get('Iccid'), device.get('NodeId')))
             else:
                 c.execute("INSERT INTO node_interface "
-                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                           (device.get('NodeId'), device.get('DeviceId'),
                            device.get('MccMnc'), device.get('Operator'),
                            device.get('Iccid'),
-                           0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0))
+                           0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
 
         for line in sql_extras.split(";"):
             c.execute(line);
@@ -254,7 +254,7 @@ CREATE TABLE IF NOT EXISTS node_interface (nodeid INTEGER NOT NULL,
     quota_current INTEGER NOT NULL,
     quota_reset_value INTEGER, quota_type INTEGER NOT NULL,
     quota_reset_date  INTEGER, quota_last_reset INTEGER NOT NULL,
-    status TEXT NOT NULL, heartbeat INTEGER,
+    status TEXT NOT NULL, heartbeat INTEGER, opname TEXT,
     PRIMARY KEY (nodeid, imei, iccid));
 CREATE TABLE IF NOT EXISTS owners (id INTEGER PRIMARY KEY ASC,
     name TEXT NOT NULL, ssl_id TEXT UNIQUE NOT NULL,
@@ -1464,11 +1464,13 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
             if iccid is not None:
                 host  = int(iface.get('host') or 0)
                 netns = int(iface.get('netns') or 0)
+                opname = iface.get('opname','')
                 quota = host
-                c.execute("UPDATE node_interface SET heartbeat=?, quota_current=quota_reset_value-? where iccid=?", (seen, quota, iccid))
+                c.execute("UPDATE node_interface SET heartbeat=?, quota_current=quota_reset_value-?, opname=? where iccid=?", (seen, quota, opname, iccid))
             else:
                 mac = iface.get('mac')
+                opname = iface.get('opname','')
                 if mac is not None:
-                    c.execute("INSERT OR REPLACE INTO node_interface VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", 
-                              (nodeid, mac, '', '', '', 0, 0, 0, 0, 0, 'current', seen))
+                    c.execute("INSERT OR REPLACE INTO node_interface VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", 
+                              (nodeid, mac, '', '', '', 0, 0, 0, 0, 0, 'current', seen, opname))
         self.db().commit()
