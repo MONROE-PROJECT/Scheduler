@@ -319,6 +319,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         columns = """n.id, n.hostname, n.status, n.heartbeat, t.tag, t.type,
                      i.imei as i_imei, i.mccmnc as i_mccmnc,
                      i.operator as i_operator, i.iccid as i_iccid,
+                     i.operator as i_operator, i.iccid as i_iccid,
+                     i.opname as i_interface,
                      i.status as i_status, i.heartbeat as i_heartbeat,
                      i.quota_current as i_quota_current,
                      i.quota_last_reset as i_quota_last_reset,
