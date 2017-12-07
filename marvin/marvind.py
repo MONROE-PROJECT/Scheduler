@@ -383,15 +383,15 @@ class SchedulingClient:
         jobs = self.read_jobs()
         known = jobs.values()
 
-        for atid, command in jobs.iteritems():
-            taskid = command.split(" ")[1] if " " in command else ""
-            if taskid not in tasks and "stop" not in command:
-                #FIXME: actually run stop hook immediately if the task is deleted
-                log.debug(
-                    "deleting job %s from local atq, since %s not in %s (%s)" %
-                    (atid, taskid, json.dumps(tasks), command))
-                pro = Popen(["atrm", str(atid)], stdout=PIPE)
-                pro.communicate()
+        # FIXME: check if we can safely remove atq jobs if others take precedence
+        # for atid, command in jobs.iteritems():
+        #    taskid = command.split(" ")[1] if " " in command else ""
+        #    if taskid not in tasks and "stop" not in command:
+        #        log.debug(
+        #            "deleting job %s from local atq, since %s not in %s (%s)" %
+        #            (atid, taskid, json.dumps(tasks), command))
+        #        pro = Popen(["atrm", str(atid)], stdout=PIPE)
+        #        pro.communicate()
 
         # SECOND fetch all remote tasks NOT in atq
         for sched in schedule:
