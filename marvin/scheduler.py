@@ -682,7 +682,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         # handle LPQ tasks: if start is undefined...
         num_tasks = len(tasks)
         next_tasks = [t for t in tasks if t.get('start') != LPQ_SCHEDULING]
-        if num_tasks > 0 and tasks[0]['start'] == -1 and heartbeat:
+        if num_tasks > 0 and tasks[0]['start'] == LPQ_SCHEDULING and heartbeat:
+            # TODO: handle exceeded execution window.
             lpq_task = tasks[0]
             duration = lpq_task['stop']
             # and there is an available time window...
