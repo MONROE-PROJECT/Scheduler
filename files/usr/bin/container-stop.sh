@@ -27,6 +27,13 @@ echo "Finalize accounting."
 
 echo -n "Stopping container... "
 if [ $(docker inspect -f "{{.State.Running}}" $CID 2>/dev/null) ]; then
+  RUNNING=$(docker inspect $CID|jq -r .[].State.Status)
+  if [ "$RUNNING" == "exited" ]; then
+    if [ -z "$STATUS" ]; then
+      STATUS="finished"
+    fi
+  fi
+
   docker stop --time=10 $CID;
   echo "stopped:"
   docker inspect $CID|jq .[].State
