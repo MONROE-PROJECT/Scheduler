@@ -401,9 +401,9 @@ class SchedulingClient:
             schedid = str(sched["id"])   # scheduling id. schedid n:1 taskid
             expid = str(sched["expid"])
             code = sched["status"].split(";")[0]
-            if code in ['started', 'restarted', 'failed', 'finished', 'stopped', 'aborted', 'canceled']:
+            if code in ['failed', 'finished', 'stopped', 'aborted', 'canceled']:
                 log.debug(
-                    "Not scheduling started, finished or aborted task "
+                    "Not scheduling finished or aborted task "
                     "(Expid %s, scheduling id %s)" % (expid, schedid))
                 continue
 
@@ -434,6 +434,12 @@ class SchedulingClient:
                     log.debug("reading PID file for task %s failed" % schedid)
                 continue
             else:
+                if code in ['started', 'restarted']:
+                    log.debug(
+                        "Not scheduling started task "
+                        "(Expid %s, scheduling id %s)" % (expid, schedid))
+                    continue
+
                 log.debug("unknown task: %s" % schedid)
                 result = requests.get("%s/experiments/%s/schedule/%s" % \
                     (config['rest-server'], expid, schedid),
