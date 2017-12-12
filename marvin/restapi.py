@@ -245,7 +245,7 @@ class Schedule:
             web.ctx.status = '400 Bad Request'
             return error("Scheduling id missing.")
         schedid = schedid[1:]
-        tasks = rest_api.scheduler.get_schedule(schedid=schedid, past=True)
+        tasks = rest_api.scheduler.get_schedule(schedid=schedid, past=True, lpq=True)
         if len(tasks) == 0:
             web.ctx.status = '404 Not Found'
             return error("Could not find schedule entry with this id.")

@@ -633,7 +633,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
     def get_schedule(self, schedid=None, expid=None, nodeid=None,
                      userid=None, past=False, start=0, stop=0, limit=0,
                      private=False, compact=False, interfaces=False,
-                     heartbeat=False):
+                     heartbeat=False, lpq=False):
         """Return scheduled jobs.
 
         Keywords arguments:
@@ -699,7 +699,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                    tasks = [lpq_task] + next_tasks
         else:
             # do not return lpq tasks, even if they cannot be scheduled
-            tasks = next_tasks
+            if not lpq:
+                tasks = next_tasks
 
         if compact is False:
             for x in tasks:
