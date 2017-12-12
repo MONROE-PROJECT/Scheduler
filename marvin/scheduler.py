@@ -681,7 +681,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
         # handle LPQ tasks: if start is undefined...
         num_tasks = len(tasks)
-        next_tasks = [t for t in tasks if t.get('start') != -1]
+        next_tasks = [t for t in tasks if t.get('start') != LPQ_SCHEDULING]
         if num_tasks > 0 and tasks[0]['start'] == -1 and heartbeat:
             lpq_task = tasks[0]
             duration = lpq_task['stop']
@@ -1310,7 +1310,7 @@ SELECT DISTINCT * FROM (
             available={}
             avl_tails={}
             total_num_interfaces = 0
-            headnodes, tailnodes = self.get_node_pairs() 
+            headnodes, tailnodes = self.get_node_pairs()
 
             for inum, i in enumerate(intervals):
                 nodes, tails = self.get_available_nodes(
@@ -1318,8 +1318,8 @@ SELECT DISTINCT * FROM (
                                    i[0], i[1], head=head, tail=tail, pair=pair)
                 if len(nodes) < nodecount:
                     self.db().rollback()
-                    if i[0] == -1:
-                        msg = "This node is not available for scheduling." 
+                    if i[0] == LPQ_SCHEDULING:
+                        msg = "These nodes are not available for scheduling."
                     else:
                         utcstart = datetime.datetime.utcfromtimestamp(int(i[0])).isoformat()
                         utcstop  = datetime.datetime.utcfromtimestamp(int(i[1])).isoformat()
@@ -1352,6 +1352,10 @@ SELECT DISTINCT * FROM (
 
             keypairs = [self.generate_key_pair() for x in xrange(apucount * len(intervals))] if ssh else None
             now = int(time.time())
+
+            if start == LPQ_SCHEDULING:
+                start = now
+                stop = until
 
             # no write queries until this point
             c.execute("INSERT INTO experiments "
