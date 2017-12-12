@@ -114,7 +114,7 @@ echo "ok."
 
 # start accounting
 echo "Starting accounting."
-/usr/bin/usage-defaults || true
+/usr/bin/usage-defaults 2>/dev/null || true
 
 # CID: the runtime container ID
 CID=$(docker ps --no-trunc | grep $CONTAINER | awk '{print $1}' | head -n 1)
