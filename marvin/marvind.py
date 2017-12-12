@@ -54,6 +54,9 @@ SYSEVENT_SCHEDULING_STARTED = "Scheduling.Started"
 
 PREFETCH_LIMIT = 3
 
+GET_TIMEOUT = 1
+POST_TIMEOUT = 5
+
 PRIO_04MB = 3
 PRIO_50MB = 11
 PRIO_100MB = 12
@@ -286,7 +289,7 @@ class SchedulingClient:
                     data=status,
                     cert=self.cert,
                     verify=False,
-                    timeout=1)
+                    timeout=POST_TIMEOUT)
                 if result.status_code != 200 and not "cannot be reset" in result.text:
                     log.debug("Setting status %s of task %s failed: %s" % \
                               (str(status), status['schedid'], result.text))
@@ -303,7 +306,7 @@ class SchedulingClient:
                     data=report,
                     cert=self.cert,
                     verify=False,
-                    timeout=1)
+                    timeout=POST_TIMEOUT)
                 if result.status_code != 200:
                     log.debug("Traffic report for task %s failed: %s" % \
                               (report['schedid'], result.text))
@@ -361,7 +364,7 @@ class SchedulingClient:
                 best_if = iccid
 
         try:
-            dlbdata = requests.get('http://localhost:88/dlb', timeout=1)
+            dlbdata = requests.get('http://localhost:88/dlb', timeout=GET_TIMEOUT)
             post = []
             for iface in dlbdata.json().get('interfaces'):
                 index = iface.get('index')
@@ -371,7 +374,7 @@ class SchedulingClient:
                 elif iccid in managed_interfaces:
                     post.append({'iccid':iccid, 'index':index, 'conn':PRIO_04MB})
             payload = json.dumps({'interfaces':post})
-            requests.post('http://localhost:88/dlb', payload, timeout=1)
+            requests.post('http://localhost:88/dlb', payload, timeout=GET_TIMEOUT)
         except:
             traceback.print_exc()
 
@@ -434,7 +437,7 @@ class SchedulingClient:
                 log.debug("unknown task: %s" % schedid)
                 result = requests.get("%s/experiments/%s/schedule/%s" % \
                     (config['rest-server'], expid, schedid),
-                    cert=self.cert, verify=False, timeout=1)
+                    cert=self.cert, verify=False, timeout=GET_TIMEOUT)
                 task = result.json()
                 try:
                     self.add_task(task, sched)
@@ -500,7 +503,7 @@ class SchedulingClient:
                     data=None,
                     cert=self.cert,
                     verify=False,
-                    timeout=1)
+                    timeout=GET_TIMEOUT)
                 log.debug("Authenticated as %s" % result.text)
                 if result.status_code == 401:
                     log.error("Node certificate not valid.")
@@ -533,7 +536,7 @@ class SchedulingClient:
                               "interfaces": interfaces},
                         cert=self.cert,
                         verify=False,
-                        timeout=5)
+                        timeout=POST_TIMEOUT)
                     if result.status_code == 200 and maintenance != "1":
                         result = result.json()
                         if type(result) is dict: # transition to changed API
