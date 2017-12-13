@@ -36,9 +36,7 @@ pkill wpa_supplicant
 ifconfig wlan0 up
 /sbin/wpa_supplicant -Bc /etc/wpa_supplicant/wpa_supplicant.eduroam.conf -i wlan0
 
-dhclient wlan0
-sleep 5
-dhclient wlan0
-sleep 5
+sleep 10
+pkill -f 'table_allocator_client.*wlan0'
 dhclient wlan0
 
