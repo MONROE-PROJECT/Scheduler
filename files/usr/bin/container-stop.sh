@@ -100,7 +100,7 @@ if [ ! -z "$EDUROAM_IDENTITY" ]; then
     rm /etc/wpa_supplicant/wpa_supplicant.eduroam.conf
     pkill wpa_supplicant
     iwconfig wlan0 ap 00:00:00:00:00:00
-    ifconfig wlan0 down
+    ifconfig wlan0 0.0.0.0 down
     echo "ok."
 fi
 
