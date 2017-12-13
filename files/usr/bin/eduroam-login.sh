@@ -12,7 +12,7 @@ if [ ${#EDUROAM_HASH} -ge 100 ]; then
   exit
 fi
 
-echo > /etc/wpa_supplicant/wpa_supplicant.eduroam.conf << EOF
+cat > /etc/wpa_supplicant/wpa_supplicant.eduroam.conf << EOF
 ap_scan=1
 network={
         disabled=0
