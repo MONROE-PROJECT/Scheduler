@@ -71,7 +71,7 @@ echo "ok."
 # setup eduroam if available
 
 if [ ! -z "$EDUROAM_IDENTITY" ]; then
-    /usr/bin/eduroam_login.sh $EDUROAM_IDENTITY $EDUROAM_HASH & 
+    /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH & 
 fi
 
 ### START THE CONTAINER ###############################################
