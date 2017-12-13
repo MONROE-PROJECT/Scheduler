@@ -14,6 +14,8 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
   IS_SSH=$(echo $CONFIG | jq -r '.ssh // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
+  EDUROAM_ID=$(echo $CONFIG | jq -r '.eduroam.identity // empty');
+  EDUROAM_HASH=$(echo $CONFIG | jq -r '._eduroam.hash // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -65,6 +67,12 @@ GUID="${IMAGEID}.${SCHEDID}.${NODEID}.${COUNT}"
 CONFIG=$(echo $CONFIG | jq '.guid="'$GUID'"|.nodeid="'$NODEID'"')
 echo $CONFIG > $BASEDIR/$SCHEDID.conf
 echo "ok."
+
+# setup eduroam if available
+
+if [ ! -z "$EDUROAM_IDENTITY" ]; then
+    /usr/bin/eduroam_login.sh $EDUROAM_IDENTITY $EDUROAM_HASH & 
+fi
 
 ### START THE CONTAINER ###############################################
 
