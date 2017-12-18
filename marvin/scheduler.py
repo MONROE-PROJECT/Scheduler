@@ -977,10 +977,10 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         now = int(time.time())
 
         alive_after = now - 48 * 3600
-        if (abs(start-now) < 1200) or (start==0):
+        if (start > -1) and ((abs(start-now) < 1200) or (start==0)):
             # short heartbeat filter for immediate starts
             alive_after = now - 600
-        if start == -1 or nodes is not None:
+        if nodes is not None:
             # do not apply heartbeat filter on preselection
             alive_after = 0
 
