@@ -36,7 +36,7 @@ echo "disabled."
 if [ -f $BASEDIR/$SCHEDID.conf ]; then
   CONFIG=$(cat $BASEDIR/$1.conf);
   QUOTA_DISK=$(echo $CONFIG | jq -r .storage);
-  CONTAINER_URL=$(echo $CONFIG | jq -r .script);
+  [ -z $CONTAINER_URL ] && CONTAINER_URL=$(echo $CONFIG | jq -r .script);
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
 fi
