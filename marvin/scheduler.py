@@ -121,8 +121,9 @@ class Scheduler:
 
     def __init__(self, refresh=False):
         self.check_db(refresh)
-        if config.get('inventory', {}).get('nync', True):
+        if config.get('inventory', {}).get('sync', True):
             self.sync_inventory()
+        self.refund_data_quotas()
 
     def sync_inventory(self):
         global last_sync
@@ -230,7 +231,7 @@ class Scheduler:
         c = self.db(refresh).cursor()
         c.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = c.fetchall()
-        # TODO: more sanity checks on boot
+
         if not set(["nodes", "node_type", "node_interface", "owners",
                     "experiments", "schedule",
                     "quota_owner_time", "quota_owner_data",
@@ -285,7 +286,7 @@ CREATE TABLE IF NOT EXISTS schedule (id TEXT PRIMARY KEY ASC,
     FOREIGN KEY (nodeid) REFERENCES nodes(id),
     FOREIGN KEY (expid) REFERENCES experiments(id));
 CREATE TABLE IF NOT EXISTS traffic_reports (schedid TEXT,
-    meter TEXT NOT NULL, value INTEGER NOT NULL,
+    meter TEXT NOT NULL, value INTEGER NOT NULL, refunded INT default 0,
     FOREIGN KEY (schedid) REFERENCES schedule(id));
 CREATE UNIQUE INDEX IF NOT EXISTS k_all ON traffic_reports(schedid, meter);
 CREATE INDEX IF NOT EXISTS k_iccid      ON node_interface(iccid);
@@ -509,7 +510,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         c.execute("select status, count(*) as cnt from schedule where start > ? group by status order by cnt desc", (now - 7*24*3600,))
         tasks["status codes (7d)"]=dict([(x[0],x[1]) for x in c.fetchall()])
         activity["schedules"]=tasks
-        
+
         return activity
 
     def get_quota_journal(self, userid=None, iccid=None, nodeid=None, maxage=0):
@@ -731,17 +732,17 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         c = self.db().cursor()
         # these two are on the deployment quota
         if 'deployment' in traffic:
-          c.execute("INSERT OR REPLACE INTO traffic_reports VALUES (?,?,?)",
+          c.execute("INSERT OR REPLACE INTO traffic_reports VALUES (?,?,?,1)",
                     (schedid, 'deployment', traffic['deployment']))
         if 'results' in traffic:
-          c.execute("INSERT OR REPLACE INTO traffic_reports VALUES (?,?,?)",
+          c.execute("INSERT OR REPLACE INTO traffic_reports VALUES (?,?,?,1)",
                     (schedid, 'results', traffic['results']))
         if 'interfaces' in traffic:
           for iccid, value in traffic['interfaces'].iteritems():
-              c.execute("INSERT OR REPLACE INTO traffic_reports VALUES (?,?,?)",
+              c.execute("INSERT OR REPLACE INTO traffic_reports VALUES (?,?,?,0)",
                         (schedid, iccid, value))
         if traffic.get('final',False):
-            #TODO: restore quotas
+            #TODO: restore quotas when receiving final message
             pass
         self.db().commit()
         return True, "Ok."
@@ -923,6 +924,29 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             self.tails = tails
         return self.heads, self.tails
 
+    def refund_data_quotas(self):
+        c = self.db().cursor()
+        now = int(time.time())
+        yesterday = now - 24 * 3600
+        lastmonth = now - 31 * 24 * 3600
+        c.execute("SELECT schedid, meter, value, deployment_options, e.ownerid, s.stop, e.id from traffic_reports r, schedule s, experiments e WHERE " \
+                  " r.refunded = 0 AND s.stop < ? AND s.stop > ? AND r.schedid = s.id AND s.expid = e.id" \
+                  " AND meter not in ('deployment','results')", (yesterday, lastmonth))
+        results = c.fetchall()
+        for report in results:
+            schedid, iccid, used, options, userid, stop, expid = report
+            requested = json.loads(options)['traffic']
+            delta = int(requested) - int(used)
+            if delta > 0 and len(iccid)>13:
+                c.execute("UPDATE quota_owner_data SET current = current + ? WHERE ownerid = ? AND last_reset < ?", (delta, userid, stop))
+                c.execute("""INSERT INTO quota_journal SELECT ?, "quota_owner_data",
+                             ownerid, NULL, current,
+                             "refunded %i bytes (%i requested, %i used) for experiment %i, schedule %s, interface %s." FROM
+                             quota_owner_data WHERE ownerid = ?""" % (delta, int(requested), int(used), expid, schedid, iccid),
+                             (now, userid))
+            c.execute("UPDATE traffic_reports SET refunded=1 WHERE schedid = ? AND meter = ?", (schedid, iccid))
+        self.db().commit()
+
     def get_available_nodes(self, nodes, type_require,
                             type_reject, start, stop,
                             head=True, tail=False, pair=False):
@@ -936,11 +960,12 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         if start != -1 and self.is_maintenance(start, stop):
             return [], []
 
-        # sync with inventory once per hour
+        # sync with inventory, refund quotas once per hour
         now = int(time.time())
         if now - last_sync > 3600:
             self.sync_inventory()
             self.node_pairs = None
+            self.refund_data_quotas()
 
         c = self.db().cursor()
 
@@ -964,8 +989,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             query += """
 AND n.id NOT IN (
     SELECT DISTINCT nodeid FROM schedule s
-    WHERE 
-      s.shared = 0 
+    WHERE
+      s.shared = 0
       AND (NOT ((s.stop + ? < ?) OR (s.start - ? > ?)))
 )
 AND n.heartbeat > ? """
@@ -985,7 +1010,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
             alive_after = 0
 
         parameters = [NODE_ACTIVE] + list(chain.from_iterable(type_require)) + \
-                                     list(chain.from_iterable(type_reject)) 
+                                     list(chain.from_iterable(type_reject))
         if start != -1:
             parameters += [POLICY_TASK_PADDING, start, POLICY_TASK_PADDING, stop]
             parameters += [alive_after]
@@ -996,7 +1021,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
 
         heads, tails = self.get_node_pairs()
 
-        # NOTE: with preselection, rest_api always sets head=tail=True, pair=false 
+        # NOTE: with preselection, rest_api always sets head=tail=True, pair=false
         if pair:
             headn = filter(lambda x: x in heads and heads[x] in nodes, nodes)
             tailn = [heads[x] for x in headn]
@@ -1475,6 +1500,6 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
                 mac = iface.get('mac')
                 opname = iface.get('opname','')
                 if mac is not None:
-                    c.execute("INSERT OR REPLACE INTO node_interface VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", 
+                    c.execute("INSERT OR REPLACE INTO node_interface VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                               (nodeid, mac, '', '', '', 0, 0, 0, 0, 0, 'current', seen, opname))
         self.db().commit()
