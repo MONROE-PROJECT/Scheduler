@@ -105,6 +105,15 @@ fi
 
 cp /etc/resolv.conf $BASEDIR/$SCHEDID/resolv.conf.tmp
 
+# drop all network traffic for 30 seconds (idle period)
+nohup /bin/bash -c 'sleep 35; circle start' &
+iptables -F
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+sleep 30
+circle start
+
 CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
        --name=monroe-$SCHEDID \
        --net=container:$MONROE_NOOP \
