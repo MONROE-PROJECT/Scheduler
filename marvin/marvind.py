@@ -20,7 +20,6 @@ import configuration
 
 import os
 import errno
-import zmq
 import requests
 import simplejson as json
 import time
@@ -94,11 +93,8 @@ class SchedulingClient:
 
     def sysevent(self, eventType):
         try:
-            socket = context.socket(zmq.REQ)
-            socket.connect("ipc:///tmp/sysevent")
-            socket.send("{\"EventType\": \"%s\"}" % (eventType,))
-            socket.close(5)
-        except Exception, ex:
+            pro = Popen(["/usr/bin/sysevent", "-t", eventType], stdout=PIPE, stdin=PIPE)
+        except:
             pass
 
     def resume_tasks(self):
@@ -380,21 +376,12 @@ class SchedulingClient:
 
     def update_schedule(self, data):
         schedule = data[:PREFETCH_LIMIT] # download the first three tasks only
-        tasks = [x['id'] for x in schedule]
 
         # FIRST update scheduled tasks from atq
         jobs = self.read_jobs()
         known = jobs.values()
 
         # FIXME: check if we can safely remove atq jobs if others take precedence
-        # for atid, command in jobs.iteritems():
-        #    taskid = command.split(" ")[1] if " " in command else ""
-        #    if taskid not in tasks and "stop" not in command:
-        #        log.debug(
-        #            "deleting job %s from local atq, since %s not in %s (%s)" %
-        #            (atid, taskid, json.dumps(tasks), command))
-        #        pro = Popen(["atrm", str(atid)], stdout=PIPE)
-        #        pro.communicate()
 
         # SECOND fetch all remote tasks NOT in atq
         for sched in schedule:

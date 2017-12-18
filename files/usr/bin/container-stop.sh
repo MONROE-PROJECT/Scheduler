@@ -14,6 +14,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
   STARTTIME=$(echo $CONFIG | jq -r '.start // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
+  EDUROAM_IDENTITY=$(echo $CONFIG | jq -r '.eduroam.identity // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -93,6 +94,15 @@ docker rm $(docker ps -aq) 2>/dev/null
 # clean any untagged containers without dependencies (unused layers)
 docker rmi $(docker images -a|grep '^<none>'|awk "{print \$3}") 2>/dev/null
 echo "ok."
+
+if [ ! -z "$EDUROAM_IDENTITY" ]; then
+    echo -n "Deleting EDUROAM credentials... "
+    rm /etc/wpa_supplicant/wpa_supplicant.eduroam.conf
+    pkill wpa_supplicant
+    iwconfig wlan0 ap 00:00:00:00:00:00
+    ifconfig wlan0 0.0.0.0 down
+    echo "ok."
+fi
 
 echo -n "Syncing results... "
 if [ ! -z "$IS_INTERNAL" ]; then
