@@ -121,15 +121,23 @@ rm -r $BASEDIR/$SCHEDID/*.tmp
 rm -r $BASEDIR/$SCHEDID/lost+found # remove lost+found created by fsck
 # any other file should be rsynced by now
 
-umount $BASEDIR/$SCHEDID            
-rmdir  $BASEDIR/$SCHEDID            
-rm     $BASEDIR/${SCHEDID}.conf     
-rm     $STATUSDIR/${SCHEDID}.conf   
-rm     $BASEDIR/${SCHEDID}.disk     
-rm     $BASEDIR/${SCHEDID}.counter  
-rm -r  $USAGEDIR/monroe-${SCHEDID}  
-cp     $STATUSDIR/${SCHEDID}.traffic  $STATUSDIR/${SCHEDID}.traffic_ 
+umount $BASEDIR/$SCHEDID
+rmdir  $BASEDIR/$SCHEDID
+rm     $BASEDIR/${SCHEDID}.conf
+rm     $STATUSDIR/${SCHEDID}.conf
+rm     $BASEDIR/${SCHEDID}.disk
+rm     $BASEDIR/${SCHEDID}.counter
+rm -r  $USAGEDIR/monroe-${SCHEDID}
+cp     $STATUSDIR/${SCHEDID}.traffic  $STATUSDIR/${SCHEDID}.traffic_
 fi
 rm     $BASEDIR/${SCHEDID}.pid
 echo "ok."
+
+echo -n "restorting firewall and modem state"
+circle restart
+for ip4table in $(modems|jq .[].ip4table); do
+  curl -s -X POST http://localhost:88/modems/${ip4table}/usbreset;
+done
+echo "ok."
+
 echo "Cleanup finished $(date)."
