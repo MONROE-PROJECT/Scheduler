@@ -13,7 +13,6 @@ import sqlite3 as db
 import sys
 from thread import get_ident
 import threading
-import traceback
 import time
 
 from Crypto.PublicKey import RSA
@@ -126,6 +125,8 @@ class Scheduler:
             self.sync_inventory()
 
     def sync_inventory(self):
+        global last_sync
+
         last_sync = int(time.time())
         try:
             nodes = inventory_api("nodes/status")
@@ -899,7 +900,6 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         """return all timestamps between start and stop that match a mainenance
            window boundary"""
 
-        duration = stop-start
         tod = start % 86400
         day = start - tod
 
@@ -1234,10 +1234,7 @@ SELECT DISTINCT * FROM (
         stop = start + duration
 
         # LPQ scheduling: start when node is available, no pre-deployment
-        # TODO: preserve duration
-        lpq = False
         if start == LPQ_SCHEDULING:  # -1
-            lpq = True
             stop = -1
             intervals = [(-1, duration)]
 
@@ -1471,7 +1468,6 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
             iccid = iface.get('iccid')
             if iccid is not None:
                 host  = int(iface.get('host') or 0)
-                netns = int(iface.get('netns') or 0)
                 opname = iface.get('opname','')
                 quota = host
                 c.execute("UPDATE node_interface SET heartbeat=?, quota_current=quota_reset_value-?, opname=? where iccid=?", (seen, quota, opname, iccid))
