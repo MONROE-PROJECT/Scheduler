@@ -681,22 +681,47 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
         # handle LPQ tasks: if start is undefined...
         num_tasks = len(tasks)
-        next_tasks = [t for t in tasks if t.get('start') != LPQ_SCHEDULING]
+        next_tasks = [t for t in tasks if int(t.get('start')) != LPQ_SCHEDULING]
         if num_tasks > 0 and tasks[0]['start'] == LPQ_SCHEDULING and heartbeat:
             # TODO: handle exceeded execution window.
             lpq_task = tasks[0]
-            duration = lpq_task['stop']
-            # and there is an available time window...
-            if len(next_tasks) == 0 or \
-               next_tasks[0]['start'] > now + POLICY_TASK_PADDING * 2 + duration:
-                   # then set execution time to now.
-                   lpq_task['start'] = now + POLICY_TASK_PADDING
-                   lpq_task['stop'] = now + POLICY_TASK_PADDING + duration
-                   c.execute("UPDATE schedule SET start=?, stop=? WHERE id=?",
-                             (lpq_task['start'], lpq_task['stop'], lpq_task['id']))
-                   self.db().commit()
-                   # and return one LPQ task, before anything scheduled
-                   tasks = [lpq_task] + next_tasks
+            #fd = open("/root/marvinctld.debug.log", "a")
+            #fd.write("LPQ task: %s\n" % (lpq_task['id'],))
+            #fd.write("Task que: %s\n" % (tasks,))
+            #fd.write("Next    : %s\n" % (next_tasks,))
+
+            write = False
+            if lpq_task['status'] != 'defined':
+                lpq_task['start'] = now - POLICY_TASK_PADDING 
+                lpq_task['stop'] = now - POLICY_TASK_PADDING
+                write = True
+            else:    
+                fd.write("Is Defined.\n")
+                duration = lpq_task['stop']
+                # and there is an available time window...
+                #fd.write("LEN %s.\n" % (len(next_tasks,)))
+                if len(next_tasks) == 0 or \
+                   next_tasks[0]['start'] > now + POLICY_TASK_PADDING * 2 + duration:
+                       #fd.write("Is Available.\n")
+                       # then set execution time to now.
+                       lpq_task['start'] = now + POLICY_TASK_PADDING
+                       lpq_task['stop'] = now + POLICY_TASK_PADDING + duration
+                       write = True
+
+            if write:
+                 d = self.db().cursor()
+                 r = d.execute("UPDATE schedule SET start=?, stop=? WHERE id=?",
+                              (lpq_task['start'], lpq_task['stop'], lpq_task['id']))
+                 self.db().commit()
+                 #fd.write("Written.\n")
+
+                 # and return one LPQ task, before anything scheduled
+                 tasks = [lpq_task] + next_tasks
+            else: 
+                 #fd.write("NOT Written.\n")
+                 tasks = next_tasks
+            #fd.close()
+            
         else:
             # do not return lpq tasks, even if they cannot be scheduled
             if not lpq:
@@ -1343,7 +1368,7 @@ SELECT DISTINCT * FROM (
                 avl_tails[i]=tails
 
             if preselection:
-                total_traffic = req_traffic * total_num_interfaces * num_intervals
+                total_traffic = req_traffic * total_num_interfaces 
                 if u['quota_data'] < total_traffic:
                     return None, "Insufficient data quota.", \
                            {'quota_data': u['quota_data'],
