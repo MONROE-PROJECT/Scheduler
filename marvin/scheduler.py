@@ -696,7 +696,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 lpq_task['stop'] = now - POLICY_TASK_PADDING
                 write = True
             else:    
-                fd.write("Is Defined.\n")
+                #fd.write("Is Defined.\n")
                 duration = lpq_task['stop']
                 # and there is an available time window...
                 #fd.write("LEN %s.\n" % (len(next_tasks,)))
