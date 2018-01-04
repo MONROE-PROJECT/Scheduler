@@ -790,7 +790,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
     def get_experiments(self, expid=None, userid=None, nodeid=None, schedid=None, archived=False):
         c = self.db().cursor()
-        archq = " AND e.status='%s' " % EXPERIMENT_ACTIVE if not archived else ""
+        archq = " AND e.status!='%s' " % EXPERIMENT_ARCHIVED if not archived else ""
         if expid is not None:
             c.execute(
                 "SELECT * FROM experiments e WHERE e.id=?" + archq, (expid,))
