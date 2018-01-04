@@ -95,6 +95,7 @@ DEVICE_HISTORIC = 'historic'
 DEVICE_CURRENT = 'current'
 
 EXPERIMENT_ACTIVE='active'
+EXPERIMENT_EXPIRED='expired'
 EXPERIMENT_ARCHIVED='archived'
 
 LPQ_SCHEDULING = -1
@@ -965,6 +966,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         now = int(time.time())
         if now - last_sync > 3600:
             self.sync_inventory()
+            self.expire_lpq()
             self.node_pairs = None
 
         c = self.db().cursor()
@@ -1452,7 +1454,8 @@ SELECT DISTINCT * FROM (
         self.db().commit()
         return rows
 
-    def delete_experiment(self, expid):
+
+    def delete_experiment(self, expid, exp_status=None):
         c = self.db().cursor()
         c.execute("SELECT DISTINCT status FROM schedule WHERE expid = ?",
                   (expid,))
@@ -1481,11 +1484,22 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
     status IN ('deployed', 'requested', 'started', 'delayed', 'redeployed', 'restarted', 'running') OR status LIKE 'delayed%'
                       """, ('aborted', expid))
             aborted = c.rowcount
+            if exp_status is not None:
+                c.execute("UPDATE experiments SET status=? WHERE id=?", (exp_status, expid))
             self.db().commit()
             return 1, "Ok. Canceled or aborted open scheduling entries", {
                        "canceled": canceled,
                        "aborted": aborted
                    }
+
+
+    def expire_lpq(self):
+        c = self.db().cursor()
+        c.execute("SELECT e.id FROM experiments e, schedule s WHERE s.start = -1 AND s.expid=e.id AND e.stop < strftime('%s', 'now') AND e.status = 'active'")
+        for e in c.fetchall():
+            expid = e[0]
+            self.delete_experiment(expid, EXPERIMENT_EXPIRED)
+
 
     def update_node_status(self, nodeid, seen, maintenance, interfaces):
         c = self.db().cursor()
