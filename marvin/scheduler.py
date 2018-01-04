@@ -123,8 +123,9 @@ class Scheduler:
 
     def __init__(self, refresh=False):
         self.check_db(refresh)
-        if config.get('inventory', {}).get('nync', True):
+        if config.get('inventory', {}).get('sync', True):
             self.sync_inventory()
+        self.expire_lpq()
 
     def sync_inventory(self):
         last_sync = int(time.time())
@@ -1495,7 +1496,7 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
 
     def expire_lpq(self):
         c = self.db().cursor()
-        c.execute("SELECT e.id FROM experiments e, schedule s WHERE s.start = -1 AND s.expid=e.id AND e.stop < strftime('%s', 'now') AND e.status = 'active'")
+        c.execute("SELECT DISTINCT e.id FROM experiments e, schedule s WHERE s.start = -1 AND s.expid=e.id AND e.stop < strftime('%s', 'now') AND e.status = 'active'")
         for e in c.fetchall():
             expid = e[0]
             self.delete_experiment(expid, EXPERIMENT_EXPIRED)
