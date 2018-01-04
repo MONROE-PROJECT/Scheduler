@@ -94,6 +94,7 @@ DEVICE_HISTORIC = 'historic'
 DEVICE_CURRENT = 'current'
 
 EXPERIMENT_ACTIVE='active'
+EXPERIMENT_EXPIRED='expired'
 EXPERIMENT_ARCHIVED='archived'
 
 LPQ_SCHEDULING = -1
@@ -124,6 +125,7 @@ class Scheduler:
         if config.get('inventory', {}).get('sync', True):
             self.sync_inventory()
         self.refund_data_quotas()
+        self.expire_lpq()
 
     def sync_inventory(self):
         global last_sync
@@ -687,24 +689,17 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         if num_tasks > 0 and tasks[0]['start'] == LPQ_SCHEDULING and heartbeat:
             # TODO: handle exceeded execution window.
             lpq_task = tasks[0]
-            #fd = open("/root/marvinctld.debug.log", "a")
-            #fd.write("LPQ task: %s\n" % (lpq_task['id'],))
-            #fd.write("Task que: %s\n" % (tasks,))
-            #fd.write("Next    : %s\n" % (next_tasks,))
 
             write = False
             if lpq_task['status'] != 'defined':
-                lpq_task['start'] = now - POLICY_TASK_PADDING 
+                lpq_task['start'] = now - POLICY_TASK_PADDING
                 lpq_task['stop'] = now - POLICY_TASK_PADDING
                 write = True
-            else:    
-                fd.write("Is Defined.\n")
+            else:
                 duration = lpq_task['stop']
                 # and there is an available time window...
-                #fd.write("LEN %s.\n" % (len(next_tasks,)))
                 if len(next_tasks) == 0 or \
                    next_tasks[0]['start'] > now + POLICY_TASK_PADDING * 2 + duration:
-                       #fd.write("Is Available.\n")
                        # then set execution time to now.
                        lpq_task['start'] = now + POLICY_TASK_PADDING
                        lpq_task['stop'] = now + POLICY_TASK_PADDING + duration
@@ -715,15 +710,12 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                  r = d.execute("UPDATE schedule SET start=?, stop=? WHERE id=?",
                               (lpq_task['start'], lpq_task['stop'], lpq_task['id']))
                  self.db().commit()
-                 #fd.write("Written.\n")
 
                  # and return one LPQ task, before anything scheduled
                  tasks = [lpq_task] + next_tasks
-            else: 
-                 #fd.write("NOT Written.\n")
+            else:
                  tasks = next_tasks
-            #fd.close()
-            
+
         else:
             # do not return lpq tasks, even if they cannot be scheduled
             if not lpq:
@@ -989,6 +981,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         now = int(time.time())
         if now - last_sync > 3600:
             self.sync_inventory()
+            self.expire_lpq()
             self.node_pairs = None
             self.refund_data_quotas()
 
@@ -1390,7 +1383,7 @@ SELECT DISTINCT * FROM (
                 avl_tails[i]=tails
 
             if preselection:
-                total_traffic = req_traffic * total_num_interfaces 
+                total_traffic = req_traffic * total_num_interfaces
                 if u['quota_data'] < total_traffic:
                     return None, "Insufficient data quota.", \
                            {'quota_data': u['quota_data'],
@@ -1474,7 +1467,8 @@ SELECT DISTINCT * FROM (
         self.db().commit()
         return rows
 
-    def delete_experiment(self, expid):
+
+    def delete_experiment(self, expid, exp_status=None):
         c = self.db().cursor()
         c.execute("SELECT DISTINCT status FROM schedule WHERE expid = ?",
                   (expid,))
@@ -1503,11 +1497,22 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
     status IN ('deployed', 'requested', 'started', 'delayed', 'redeployed', 'restarted', 'running') OR status LIKE 'delayed%'
                       """, ('aborted', expid))
             aborted = c.rowcount
+            if exp_status is not None:
+                c.execute("UPDATE experiments SET status=? WHERE id=?", (exp_status, expid))
             self.db().commit()
             return 1, "Ok. Canceled or aborted open scheduling entries", {
                        "canceled": canceled,
                        "aborted": aborted
                    }
+
+
+    def expire_lpq(self):
+        c = self.db().cursor()
+        c.execute("SELECT DISTINCT e.id FROM experiments e, schedule s WHERE s.start = -1 AND s.expid=e.id AND e.stop < strftime('%s', 'now') AND e.status = 'active'")
+        for e in c.fetchall():
+            expid = e[0]
+            self.delete_experiment(expid, EXPERIMENT_EXPIRED)
+
 
     def update_node_status(self, nodeid, seen, maintenance, interfaces):
         c = self.db().cursor()
