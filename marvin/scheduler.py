@@ -280,10 +280,13 @@ CREATE TABLE IF NOT EXISTS experiments (id INTEGER PRIMARY KEY ASC,
     recurring_until INTEGER NOT NULL, options TEXT,
     status TEXT,
     FOREIGN KEY (ownerid) REFERENCES owners(id));
+CREATE TABLE IF NOT EXISTS deployment_options (id INTEGER PRIMARY KEY ASC,
+    json TEXT UNIQUE);
 CREATE TABLE IF NOT EXISTS schedule (id TEXT PRIMARY KEY ASC,
     nodeid INTEGER, expid INTEGER, start INTEGER, stop INTEGER,
-    status TEXT NOT NULL, shared INTEGER, deployment_options TEXT,
+    status TEXT NOT NULL, shared INTEGER, deployment_options INT,
     FOREIGN KEY (nodeid) REFERENCES nodes(id),
+    FOREIGN KEY (deployment_options) REFERENCES deployment_options(id),
     FOREIGN KEY (expid) REFERENCES experiments(id));
 CREATE TABLE IF NOT EXISTS traffic_reports (schedid TEXT,
     meter TEXT NOT NULL, value INTEGER NOT NULL,
@@ -656,7 +659,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         if compact:
             selectq = "SELECT s.nodeid, s.start, s.stop, e.ownerid"
         else:
-            selectq = "SELECT *"
+            selectq = "SELECT s.*, o.json"
         pastq = (
                     " AND (NOT (s.start>%i OR s.stop<%i) OR s.start = -1) " % (stop, start)
                 ) if not past else ""
@@ -665,19 +668,19 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             orderq += " LIMIT %i" % limit
         if schedid is not None:
             c.execute(
-                selectq + " FROM schedule s WHERE s.id = ?" + pastq + orderq, (schedid,))
+                selectq + " FROM schedule s, deployment_options o WHERE s.id = ? AND s.deployment_options = o.id " + pastq + orderq, (schedid,))
         elif expid is not None:
             c.execute(
-                selectq + " FROM schedule s WHERE s.expid = ?" + pastq + orderq, (expid,))
+                selectq + " FROM schedule s, deployment_options o WHERE s.expid = ?  AND s.deployment_options = o.id " + pastq + orderq, (expid,))
         elif nodeid is not None:
             c.execute(
-                selectq + " FROM schedule s WHERE s.nodeid=?" + pastq + orderq, (nodeid,))
+                selectq + " FROM schedule s, deployment_options o WHERE s.nodeid=?  AND s.deployment_options = o.id " + pastq + orderq, (nodeid,))
         elif userid is not None:
-            c.execute(selectq + " FROM schedule s, experiments t "
-                      "WHERE s.expid = t.id AND t.ownerid=?" +
+            c.execute(selectq + " FROM schedule s, deployment_options o, experiments t "
+                      "WHERE s.expid = t.id AND t.ownerid=? AND s.deployment_options = o.id " +
                       pastq + orderq, (userid,))
         else:
-            c.execute(selectq + " FROM schedule s, experiments e WHERE s.expid=e.id " + pastq + orderq)
+            c.execute(selectq + " FROM schedule s, deployment_options o, experiments e WHERE s.expid=e.id AND s.deployment_options = o.id  " + pastq + orderq)
         taskrows = c.fetchall()
         tasks = [dict(x) for x in taskrows]
 
@@ -732,11 +735,12 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         if compact is False:
             for x in tasks:
                 x['deployment_options'] = json.loads(
-                    x.get('deployment_options', '{}'))
+                    x.get('json', '{}'))
                 if not private:
                     for key in x['deployment_options'].keys():
                         if key[0]=='_':
                             del x['deployment_options'][key]
+                del x['json']
             if len(tasks)==1:
                 for x in tasks:
                     c.execute("SELECT meter,value FROM traffic_reports WHERE schedid=?",
@@ -827,7 +831,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                                {"status": x['status'], "nodeid": x['nodeid'],
                                 "start": x['start'], "stop": x['stop']}
                               ) for x in result])
-                query="SELECT deployment_options FROM schedule WHERE expid=?"
+                query="SELECT json as deployment_options FROM schedule s, deployment_options o WHERE s.expid=? AND s.deployment_options=o.id"
                 c.execute(query, (experiments[i]['id'],))
                 result = c.fetchone()
                 if result is not None:
@@ -835,7 +839,6 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                     for key in opts.keys():
                         if key[0]=='_':
                             del opts[key]
-                    #schedules['deployment_options']=opts
                 experiments[i]['schedules'] = schedules
             else:
                 query="SELECT status, count(*) FROM schedule WHERE expid=? GROUP BY status"
@@ -939,6 +942,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 segments.append(t)
         return segments
 
+
     def get_node_pairs(self):
         if self.node_pairs is None:
             c = self.db().cursor()
@@ -949,6 +953,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             self.heads = heads
             self.tails = tails
         return self.heads, self.tails
+
 
     def get_available_nodes(self, nodes, type_require,
                             type_reject, start, stop,
@@ -1331,10 +1336,17 @@ SELECT DISTINCT * FROM (
                 deployment_opts['ssh.public'] = public
                 c.execute("INSERT INTO key_pairs VALUES "
                           "(?, ?, ?)", (private, public, i[1]))
+
+            #store deployment_options in a hash table to filter duplicates
+            options = json.dumps(deployment_opts)
+            c.execute("INSERT OR IGNORE INTO deployment_options VALUES (NULL, ?)", options)
+            c.execute("SELECT id FROM deployment_options WHERE json=?", options)
+            do_id = c.fetchone()[0]
+
             c.execute("INSERT INTO schedule VALUES "
                       "(NULL, ?, ?, ?, ?, ?, ?, ?)",
                       (node, expid, i[0], i[1], 'defined',
-                       shared, json.dumps(deployment_opts)))
+                       shared, do_id))
 
         try:
             available={}
