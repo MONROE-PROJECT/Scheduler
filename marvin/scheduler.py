@@ -233,10 +233,10 @@ class Scheduler:
         tables = c.fetchall()
         # TODO: more sanity checks on boot
         if not set(["nodes", "node_type", "node_interface", "owners",
-                    "experiments", "schedule",
+                    "experiments", "schedule", "deployment_options",
                     "quota_owner_time", "quota_owner_data",
                     "quota_owner_storage", "quota_journal",
-                    "traffic_reports"
+                    "traffic_reports", "node_pair"
                     ]).issubset(set(tables)):
             for statement in """
 
