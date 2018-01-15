@@ -686,6 +686,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         # handle LPQ tasks: if start is undefined...
         num_tasks = len(tasks)
         next_tasks = [t for t in tasks if int(t.get('start')) != LPQ_SCHEDULING]
+
         if num_tasks > 0 and tasks[0]['start'] == LPQ_SCHEDULING and heartbeat:
             # TODO: handle exceeded execution window.
             lpq_task = tasks[0]
@@ -790,7 +791,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
     def get_experiments(self, expid=None, userid=None, nodeid=None, schedid=None, archived=False):
         c = self.db().cursor()
-        archq = " AND e.status!='%s' " % EXPERIMENT_ARCHIVED if not archived else ""
+        archq = " AND e.status='%s' " % EXPERIMENT_ACTIVE if not archived else ""
         if expid is not None:
             c.execute(
                 "SELECT * FROM experiments e WHERE e.id=?" + archq, (expid,))
