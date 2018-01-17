@@ -687,13 +687,10 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         # handle LPQ tasks: if start is undefined...
         num_tasks = len(tasks)
         next_tasks = [t for t in tasks if int(t.get('start')) != LPQ_SCHEDULING]
+
         if num_tasks > 0 and tasks[0]['start'] == LPQ_SCHEDULING and heartbeat:
             # TODO: handle exceeded execution window.
             lpq_task = tasks[0]
-            #fd = open("/root/marvinctld.debug.log", "a")
-            #fd.write("LPQ task: %s\n" % (lpq_task['id'],))
-            #fd.write("Task que: %s\n" % (tasks,))
-            #fd.write("Next    : %s\n" % (next_tasks,))
 
             write = False
             if lpq_task['status'] != 'defined':
@@ -701,14 +698,10 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 lpq_task['stop'] = now - POLICY_TASK_PADDING
                 write = True
             else:    
-                #fd.write("Is Defined.\n")
+
                 duration = lpq_task['stop']
-                # and there is an available time window...
-                #fd.write("LEN %s.\n" % (len(next_tasks,)))
                 if len(next_tasks) == 0 or \
                    next_tasks[0]['start'] > now + POLICY_TASK_PADDING * 2 + duration:
-                       #fd.write("Is Available.\n")
-                       # then set execution time to now.
                        lpq_task['start'] = now + POLICY_TASK_PADDING
                        lpq_task['stop'] = now + POLICY_TASK_PADDING + duration
                        write = True
@@ -718,14 +711,11 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                  r = d.execute("UPDATE schedule SET start=?, stop=? WHERE id=?",
                               (lpq_task['start'], lpq_task['stop'], lpq_task['id']))
                  self.db().commit()
-                 #fd.write("Written.\n")
 
                  # and return one LPQ task, before anything scheduled
                  tasks = [lpq_task] + next_tasks
             else: 
-                 #fd.write("NOT Written.\n")
                  tasks = next_tasks
-            #fd.close()
             
         else:
             # do not return lpq tasks, even if they cannot be scheduled
@@ -802,7 +792,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
     def get_experiments(self, expid=None, userid=None, nodeid=None, schedid=None, archived=False):
         c = self.db().cursor()
-        archq = " AND e.status!='%s' " % EXPERIMENT_ARCHIVED if not archived else ""
+        archq = " AND e.status='%s' " % EXPERIMENT_ACTIVE if not archived else ""
         if expid is not None:
             c.execute(
                 "SELECT * FROM experiments e WHERE e.id=?" + archq, (expid,))
@@ -954,6 +944,12 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             self.tails = tails
         return self.heads, self.tails
 
+    def check_sql_query(self, sql, values):
+        unique = "%parm%"
+        sql = sql.replace('?', unique)
+        for v in values: 
+             sql = sql.replace(unique, '\''+unicode(v)+'\'', 1)
+        return sql
 
     def get_available_nodes(self, nodes, type_require,
                             type_reject, start, stop,
@@ -985,14 +981,17 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 "  FROM nodes n, node_interface i \n"\
                 "  WHERE n.status = ? AND n.id = i.nodeid \n"
         query += preselection
-        type_require = [x[0].split(":") for x in type_require]
-        type_reject = [x[0].split(":") for x in type_reject]
+
+        type_require = [x.split(":") for x in type_require[0]] if len(type_require)>0 else []
+        type_reject = [x.split(":") for x in type_reject[0]] if len(type_reject)>0 else []
+
         for type_and in type_require:
             query += "  AND n.id IN (SELECT nodeid FROM node_type " \
                      "  WHERE tag = ? AND type = ?)"
         for type_and in type_reject:
             query += "  AND n.id NOT IN (SELECT nodeid FROM node_type " \
                      "  WHERE tag = ? AND type = ?)"
+
         if start != -1:
             query += """
 AND n.id NOT IN (
@@ -1022,6 +1021,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         if start != -1:
             parameters += [POLICY_TASK_PADDING, start, POLICY_TASK_PADDING, stop]
             parameters += [alive_after]
+
         c.execute(query, parameters)
 
         noderows = c.fetchall()
@@ -1080,13 +1080,14 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         where = "WHERE 1==1"
         if selection is not None:
             where += " AND nodeid IN ('" + "', '".join(nodes) + "') \n"
-        type_require_ = [x[0].split(":") for x in type_require]
-        type_reject_ = [x[0].split(":") for x in type_reject]
+        # FIXME: check whether this takes in all parameters
+        type_require_ = [x.split(":") for x in type_require[0]] if len(type_require)>0 else []
+        type_reject_ = [x.split(":") for x in type_reject[0]] if len(type_reject)>0 else []
 
-        for type_and in type_require:
+        for type_and in type_require_:
             where += "  AND nodeid IN (SELECT nodeid FROM node_type " \
                      "  WHERE tag = ? AND type = ?)"
-        for type_and in type_reject:
+        for type_and in type_reject_:
             where += "  AND nodeid NOT IN (SELECT nodeid FROM node_type " \
                      "  WHERE tag = ? AND type = ?)"
         where += " AND shared = 0 "
