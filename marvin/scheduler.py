@@ -940,6 +940,13 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             self.tails = tails
         return self.heads, self.tails
 
+    def check_sql_query(self, sql, values):
+        unique = "%parm%"
+        sql = sql.replace('?', unique)
+        for v in values: 
+             sql = sql.replace(unique, '\''+unicode(v)+'\'', 1)
+        return sql
+
     def get_available_nodes(self, nodes, type_require,
                             type_reject, start, stop,
                             head=True, tail=False, pair=False):
@@ -970,14 +977,17 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 "  FROM nodes n, node_interface i \n"\
                 "  WHERE n.status = ? AND n.id = i.nodeid \n"
         query += preselection
-        type_require = [x[0].split(":") for x in type_require]
-        type_reject = [x[0].split(":") for x in type_reject]
+
+        type_require = [x.split(":") for x in type_require[0]]
+        type_reject = [x.split(":") for x in type_reject[0]]
+
         for type_and in type_require:
             query += "  AND n.id IN (SELECT nodeid FROM node_type " \
                      "  WHERE tag = ? AND type = ?)"
         for type_and in type_reject:
             query += "  AND n.id NOT IN (SELECT nodeid FROM node_type " \
                      "  WHERE tag = ? AND type = ?)"
+
         if start != -1:
             query += """
 AND n.id NOT IN (
@@ -1007,6 +1017,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         if start != -1:
             parameters += [POLICY_TASK_PADDING, start, POLICY_TASK_PADDING, stop]
             parameters += [alive_after]
+
         c.execute(query, parameters)
 
         noderows = c.fetchall()
@@ -1065,6 +1076,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         where = "WHERE 1==1"
         if selection is not None:
             where += " AND nodeid IN ('" + "', '".join(nodes) + "') \n"
+        # FIXME: check whether this takes in all parameters
         type_require_ = [x[0].split(":") for x in type_require]
         type_reject_ = [x[0].split(":") for x in type_reject]
 
