@@ -942,6 +942,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             self.tails = tails
         return self.heads, self.tails
 
+<<<<<<< HEAD
     def refund_data_quotas(self):
         c = self.db().cursor()
         now = int(time.time())
@@ -964,6 +965,14 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                              (now, userid))
             c.execute("UPDATE traffic_reports SET refunded=1 WHERE schedid = ? AND meter = ?", (schedid, iccid))
         self.db().commit()
+
+    def check_sql_query(self, sql, values):
+        unique = "%parm%"
+        sql = sql.replace('?', unique)
+        for v in values:
+             sql = sql.replace(unique, '\''+unicode(v)+'\'', 1)
+        return sql
+
 
     def get_available_nodes(self, nodes, type_require,
                             type_reject, start, stop,
@@ -996,14 +1005,10 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 "  FROM nodes n, node_interface i \n"\
                 "  WHERE n.status = ? AND n.id = i.nodeid \n"
         query += preselection
-        type_require = [x[0].split(":") for x in type_require]
-        type_reject = [x[0].split(":") for x in type_reject]
-        for type_and in type_require:
-            query += "  AND n.id IN (SELECT nodeid FROM node_type " \
-                     "  WHERE tag = ? AND type = ?)"
-        for type_and in type_reject:
-            query += "  AND n.id NOT IN (SELECT nodeid FROM node_type " \
-                     "  WHERE tag = ? AND type = ?)"
+
+        type_query, type_parms = self.node_type_query(type_require, type_reject)
+        query += type_query
+
         if start != -1:
             query += """
 AND n.id NOT IN (
@@ -1028,11 +1033,11 @@ ORDER BY min_quota DESC, n.heartbeat DESC
             # do not apply heartbeat filter on preselection
             alive_after = 0
 
-        parameters = [NODE_ACTIVE] + list(chain.from_iterable(type_require)) + \
-                                     list(chain.from_iterable(type_reject))
+        parameters = [NODE_ACTIVE] + type_parms
         if start != -1:
             parameters += [POLICY_TASK_PADDING, start, POLICY_TASK_PADDING, stop]
             parameters += [alive_after]
+
         c.execute(query, parameters)
 
         noderows = c.fetchall()
@@ -1065,6 +1070,21 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         except Exception, ex:
             return None, "nodetype expression could not be parsed. "+ex.message
 
+
+    def node_type_query(self, type_require, type_reject):
+        where = " "
+        for or_group in type_require:
+            or_stmt = " OR ".join(["(tag = ? AND type = ?)" for t in or_group])
+            where += " AND nodeid IN (SELECT nodeid FROM node_type WHERE %s) " % or_stmt
+        for or_group in type_reject:
+            or_stmt = " OR ".join(["(tag = ? AND type = ?)" for t in or_group])
+            where += " AND nodeid NOT IN (SELECT nodeid FROM node_type WHERE %s) " % or_stmt
+
+        parm_order = list(chain.from_iterable([x.split(":") for y in type_require for x in y] + \
+                                              [x.split(":") for y in type_reject for x in y]))
+        return where, parm_order
+
+
     def find_slot(self, nodecount=1, duration=1, start=0,
                   nodetypes="", nodes=None, results=1,
                   head=True, tail=False, pair=False):
@@ -1085,22 +1105,16 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         if type_require is None:
             error_message = type_reject
             return "None", error_message
+        type_query, type_parms = self.node_type_query(type_require, type_reject)
 
         # fetch all schedule segmentations (experiments starting or stopping)
         c = self.db().cursor()
         where = "WHERE 1==1"
         if selection is not None:
             where += " AND nodeid IN ('" + "', '".join(nodes) + "') \n"
-        type_require_ = [x[0].split(":") for x in type_require]
-        type_reject_ = [x[0].split(":") for x in type_reject]
-
-        for type_and in type_require:
-            where += "  AND nodeid IN (SELECT nodeid FROM node_type " \
-                     "  WHERE tag = ? AND type = ?)"
-        for type_and in type_reject:
-            where += "  AND nodeid NOT IN (SELECT nodeid FROM node_type " \
-                     "  WHERE tag = ? AND type = ?)"
+        where += type_query
         where += " AND shared = 0 "
+
         query = """
 SELECT DISTINCT * FROM (
     SELECT start - ? AS t FROM schedule %s UNION
@@ -1108,13 +1122,12 @@ SELECT DISTINCT * FROM (
 ) WHERE t >= ? AND t < ? ORDER BY t ASC;
                 """ % (where, where)
 
-        c.execute(query, [POLICY_TASK_PADDING + 1] +
-                  list(chain.from_iterable(type_require_)) +
-                  list(chain.from_iterable(type_reject_)) +
-                  [POLICY_TASK_PADDING + 1] +
-                  list(chain.from_iterable(type_require_)) +
-                  list(chain.from_iterable(type_reject_)) +
-                  [start, stop])
+
+        params =  [POLICY_TASK_PADDING + 1] + type_parms + \
+                  [POLICY_TASK_PADDING + 1] + type_parms + \
+                  [start, stop]
+
+        c.execute(query, params)
         segments = self.segments_maintenance(start, stop) + \
                    [start] + [x[0] for x in c.fetchall()] + [stop]
         segments.sort()
@@ -1344,6 +1357,7 @@ SELECT DISTINCT * FROM (
                 deployment_opts['ssh.public'] = public
                 c.execute("INSERT INTO key_pairs VALUES "
                           "(?, ?, ?)", (private, public, i[1]))
+
             c.execute("INSERT INTO schedule VALUES "
                       "(NULL, ?, ?, ?, ?, ?, ?, ?)",
                       (node, expid, i[0], i[1], 'defined',
