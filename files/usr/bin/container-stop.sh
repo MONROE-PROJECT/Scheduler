@@ -14,7 +14,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
   STARTTIME=$(echo $CONFIG | jq -r '.start // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
-  EDUROAM_IDENTITY=$(echo $CONFIG | jq -r '.eduroam.identity // empty');
+  EDUROAM_IDENTITY=$(echo $CONFIG | jq -r '._eduroam.identity // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
