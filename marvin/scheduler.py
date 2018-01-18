@@ -242,6 +242,8 @@ class Scheduler:
                     ]).issubset(set(tables)):
             for statement in """
 
+PRAGMA journal_mode=WAL;
+
 CREATE TABLE IF NOT EXISTS nodes (id INTEGER PRIMARY KEY ASC,
     hostname TEXT NOT NULL, status TEXT, heartbeat INTEGER);
 CREATE TABLE IF NOT EXISTS node_type (nodeid INTEGER NOT NULL,
