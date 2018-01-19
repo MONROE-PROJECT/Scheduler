@@ -200,7 +200,7 @@ class SchedulingClient:
                 log.warning(
                     "Atq start hook for task %s returned non-zero (%s). Failed." %
                     (id, pro.returncode))
-                self.set_status(id, "failed; atq exit code %i" % pro.returncode)
+                self.set_status(id, "delayed; atq exit code %i" % pro.returncode)
                 # TODO: handle tasks that failed scheduling
         elif stoptime > now + 60:
             log.warning(
