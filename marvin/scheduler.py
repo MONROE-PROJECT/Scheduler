@@ -944,7 +944,6 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             self.tails = tails
         return self.heads, self.tails
 
-<<<<<<< HEAD
     def refund_data_quotas(self):
         c = self.db().cursor()
         now = int(time.time())
