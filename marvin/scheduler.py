@@ -510,7 +510,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         c.execute("select status, count(*) as cnt from schedule where start > ? group by status order by cnt desc", (now - 7*24*3600,))
         tasks["status codes (7d)"]=dict([(x[0],x[1]) for x in c.fetchall()])
         activity["schedules"]=tasks
-        
+
         return activity
 
     def get_quota_journal(self, userid=None, iccid=None, nodeid=None, maxage=0):
@@ -691,14 +691,16 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
             write = False
             if lpq_task['status'] != 'defined':
-                lpq_task['start'] = now - POLICY_TASK_PADDING 
+                lpq_task['start'] = now - POLICY_TASK_PADDING
                 lpq_task['stop'] = now - POLICY_TASK_PADDING
                 write = True
-            else:    
+            else:
 
                 duration = lpq_task['stop']
-                if len(next_tasks) == 0 or \
-                   next_tasks[0]['start'] > now + POLICY_TASK_PADDING * 2 + duration:
+                if not self.is_maintenance(now + POLICY_TASK_PADDING,
+                   now + POLICY_TASK_PADDING + duration) and \
+                   (len(next_tasks) == 0 or \
+                    next_tasks[0]['start'] > now + POLICY_TASK_PADDING * 2 + duration):
                        lpq_task['start'] = now + POLICY_TASK_PADDING
                        lpq_task['stop'] = now + POLICY_TASK_PADDING + duration
                        write = True
@@ -711,9 +713,9 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
                  # and return one LPQ task, before anything scheduled
                  tasks = [lpq_task] + next_tasks
-            else: 
+            else:
                  tasks = next_tasks
-            
+
         else:
             # do not return lpq tasks, even if they cannot be scheduled
             if not lpq:
@@ -944,7 +946,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
     def check_sql_query(self, sql, values):
         unique = "%parm%"
         sql = sql.replace('?', unique)
-        for v in values: 
+        for v in values:
              sql = sql.replace(unique, '\''+unicode(v)+'\'', 1)
         return sql
 
@@ -987,8 +989,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
             query += """
 AND n.id NOT IN (
     SELECT DISTINCT nodeid FROM schedule s
-    WHERE 
-      s.shared = 0 
+    WHERE
+      s.shared = 0
       AND (NOT ((s.stop + ? < ?) OR (s.start - ? > ?)))
 )
 AND n.heartbeat > ? """
@@ -1007,7 +1009,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
             # do not apply heartbeat filter on preselection
             alive_after = 0
 
-        parameters = [NODE_ACTIVE] + type_parms 
+        parameters = [NODE_ACTIVE] + type_parms
         if start != -1:
             parameters += [POLICY_TASK_PADDING, start, POLICY_TASK_PADDING, stop]
             parameters += [alive_after]
@@ -1019,7 +1021,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
 
         heads, tails = self.get_node_pairs()
 
-        # NOTE: with preselection, rest_api always sets head=tail=True, pair=false 
+        # NOTE: with preselection, rest_api always sets head=tail=True, pair=false
         if pair:
             headn = filter(lambda x: x in heads and heads[x] in nodes, nodes)
             tailn = [heads[x] for x in headn]
@@ -1044,7 +1046,7 @@ ORDER BY min_quota DESC, n.heartbeat DESC
         except Exception, ex:
             return None, "nodetype expression could not be parsed. "+ex.message
 
- 
+
     def node_type_query(self, type_require, type_reject):
         where = " "
         for or_group in type_require:
@@ -1096,7 +1098,7 @@ SELECT DISTINCT * FROM (
 ) WHERE t >= ? AND t < ? ORDER BY t ASC;
                 """ % (where, where)
 
- 
+
         params =  [POLICY_TASK_PADDING + 1] + type_parms + \
                   [POLICY_TASK_PADDING + 1] + type_parms + \
                   [start, stop]
@@ -1375,7 +1377,7 @@ SELECT DISTINCT * FROM (
                 avl_tails[i]=tails
 
             if preselection:
-                total_traffic = req_traffic * total_num_interfaces 
+                total_traffic = req_traffic * total_num_interfaces
                 if u['quota_data'] < total_traffic:
                     return None, "Insufficient data quota.", \
                            {'quota_data': u['quota_data'],
@@ -1523,6 +1525,6 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
                 mac = iface.get('mac')
                 opname = iface.get('opname','')
                 if mac is not None:
-                    c.execute("INSERT OR REPLACE INTO node_interface VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", 
+                    c.execute("INSERT OR REPLACE INTO node_interface VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                               (nodeid, mac, '', '', '', 0, 0, 0, 0, 0, 'current', seen, opname))
         self.db().commit()
