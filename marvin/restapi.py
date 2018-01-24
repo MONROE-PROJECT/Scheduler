@@ -533,7 +533,7 @@ class User:
             result = rest_api.scheduler.delete_user(userid[1:])
             log.debug("Delete result: %s" % result)
             if result is True:
-                return error("Ok. Deleted user, tasks and scheduling entries.")
+                return error("Ok. Invalidated user certificate.")
             else:
                 web.ctx.status = '404 Not Found'
                 return error("Could not find user with that id.")
