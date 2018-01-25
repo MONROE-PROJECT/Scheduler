@@ -393,7 +393,7 @@ class Experiment:
         if role != scheduler.ROLE_ADMIN and \
            experiments[0]['ownerid'] != uid:
             web.ctx.status = '401 Unauthorized'
-            return error("Only admins and user %i can do this" % uid)
+            return error("Only admins and user %i can do this" % experiments[0]['ownerid'])
         else:
             result, message, extra = \
                 rest_api.scheduler.delete_experiment(expid)
