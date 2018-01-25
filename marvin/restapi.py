@@ -390,6 +390,9 @@ class Experiment:
             return error("Experiment id missing.")
         expid=path.split("/")[1]
         experiments = rest_api.scheduler.get_experiments(expid=expid)
+        if experiments is None or len(experiments)==0:
+            web.ctx.status = '404 Not Found'
+            return error("Experiment %s not found." % expid)
         if role != scheduler.ROLE_ADMIN and \
            experiments[0]['ownerid'] != uid:
             web.ctx.status = '401 Unauthorized'
