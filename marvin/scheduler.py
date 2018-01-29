@@ -1255,6 +1255,8 @@ SELECT DISTINCT * FROM (
                 return None, error_message, {}
 
         for script in scripts:
+            if re.match("^[!#$&-;=?-\[\]_a-z~]+$", script) is None:
+                return None, "Container URL contains invalid characters", {}
             if DEPLOYMENT_RE.match(script) is None:
                 if ['type:deployed'] in type_require:
                     return None, "Deployed nodes can only schedule experiments " \
