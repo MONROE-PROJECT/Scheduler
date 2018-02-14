@@ -438,6 +438,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         self.db().commit()
 
     def _set_quota(self, userid, value, table):
+        if value is None: 
+            return 0
         c = self.db().cursor()
         now = int(time.time())
         c.execute("UPDATE %s SET current = ? WHERE ownerid = ?" % table,
@@ -477,7 +479,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
     def set_ssl_id(self, userid, ssl):
         c = self.db().cursor()
-        c.execute("UPDATE owners SET ssl_id = ? WHERE id = ?" % (ssl, userid))
+        c.execute("UPDATE owners SET ssl_id = ? WHERE id = ?", (ssl, userid))
         self.db().commit()
         return c.rowcount
 
