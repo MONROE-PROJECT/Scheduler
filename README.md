@@ -30,7 +30,7 @@ recovered on restart.
     routes = (
       '/version'          - protocol version number (GET)
       '/resources(|/.*)'   - node, type and status (GET, PUT)
-      '/users(|/.*)'       - users (GET, POST, DELETE)
+      '/users(|/.*)'       - users (GET, PUT, POST, DELETE)
       '/experiments(|/.*)' - task definitions (GET, POST, DELETE)
       '/schedules(|/.*)'   - scheduled tasks (GET, PUT)
       '/backend(/.*)'     - backend actions (various)
@@ -88,6 +88,7 @@ only for administrators (role: admin)
   * PUT  resources/#      iccid=&quota=                    (update interface quotas)
   * POST users            name=&project=&ssl=              (ssl fingerprint)
   * PUT  users/#          data=&time=&storage=             (update user quotas)
+  * PUT  users/#          ssl=                             (update user ssl fingerprint)
   * DELETE users/#
 
 only for a node with the given id # (role: node)
