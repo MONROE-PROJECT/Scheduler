@@ -475,6 +475,12 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         self.db().commit()
         return count
 
+    def set_ssl_id(self, userid, ssl):
+        c = self.db().cursor()
+        c.execute("UPDATE owners SET ssl_id = ? WHERE id = ?" % (ssl, userid))
+        self.db().commit()
+        return c.rowcount
+
     def get_activity(self):
         activity = {}
         now = int(time.time())

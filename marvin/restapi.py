@@ -486,10 +486,12 @@ class User:
           uid, role, name = rest_api.get_user(web.ctx)
           if "time" in data.keys() or \
              "data" in data.keys() or \
+             "ssl" in data.keys() or \
              "storage" in data.keys():
               if role == scheduler.ROLE_ADMIN:
                   result = rest_api.scheduler.set_time_quota(userid, data.get('time')) \
                          + rest_api.scheduler.set_data_quota(userid, data.get('data')) \
+                         + rest_api.scheduler.set_ssl_id(userid, data.get('ssl')) \
                          + rest_api.scheduler.set_storage_quota(userid, data.get('storage'))
                   if result > 0:
                       return error("Updated.")
