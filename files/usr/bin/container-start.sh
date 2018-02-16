@@ -92,8 +92,8 @@ fi
 
 # identify the monroe/noop container, running in the
 # network namespace called 'monroe'
-MONROE_NOOP=$(docker ps |grep monroe/noop|awk '{print $1}')
-if [ -z "$MONROE_NOOP" ]; then
+MONROE_NAMESPACE=$(docker ps --no-trunc -aqf name=monroe-namespace)
+if [ -z "$MONROE_NAMESPACE" ]; then
     echo "network context missing."
     exit $ERROR_NETWORK_CONTEXT_NOT_FOUND;
 fi
@@ -116,7 +116,7 @@ circle start
 
 CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
        --name=monroe-$SCHEDID \
-       --net=container:$MONROE_NOOP \
+       --net=container:$MONROE_NAMESPACE \
        --cap-add NET_ADMIN \
        --cap-add NET_RAW \
        -v $BASEDIR/$SCHEDID/resolv.conf.tmp:/etc/resolv.conf \
