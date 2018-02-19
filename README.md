@@ -29,11 +29,11 @@ recovered on restart.
 
     routes = (
       '/version'          - protocol version number (GET)
-      '/resources(|/.*)'   - node, type and status (GET, PUT)
-      '/users(|/.*)'       - users (GET, POST, DELETE)
-      '/experiments(|/.*)' - task definitions (GET, POST, DELETE)
-      '/schedules(|/.*)'   - scheduled tasks (GET, PUT)
-      '/backend(/.*)'     - backend actions (various)
+      '/v1/resources(|/.*)'   - node, type and status (GET, PUT)
+      '/v1/users(|/.*)'       - users (GET, POST, DELETE)
+      '/v1/experiments(|/.*)' - task definitions (GET, POST, DELETE)
+      '/v1/schedules(|/.*)'   - scheduled tasks (GET, PUT)
+      '/v1/backend(/.*)'     - backend actions (various)
     )
 
 #### Terminology:
