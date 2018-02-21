@@ -194,11 +194,10 @@ class Schedule:
             selection = nodes.split(",") if nodes is not None else None
             if selection is None:
                 nodetypes = params.get('nodetypes','')
-                new_nodes = 'model:apu2' in nodetypes
                 ifCount = int(params.get('interfaceCount', 1))
-                tail = new_nodes and (ifCount != 2)
-                head = new_nodes and (ifCount >= 2)
-                pair = new_nodes and (ifCount >= 3)
+                tail = (ifCount != 2)
+                head = (ifCount >= 2)
+                pair = (ifCount >= 3)
             else:
                 nodetypes = ""
                 tail = True
@@ -349,11 +348,10 @@ class Experiment:
 
             if selection is None:
                 nodetypes = params.get('nodetypes','')
-                new_nodes = 'model:apu2' in nodetypes
                 ifCount = params.get('interfaceCount', 1)
-                tail = new_nodes and (ifCount != 2)
-                head = new_nodes and (ifCount >= 2)
-                pair = new_nodes and (ifCount >= 3)
+                tail = (ifCount != 2)
+                head = (ifCount >= 2)
+                pair = (ifCount >= 3)
             else:
                 nodetypes = ''
                 head = True
