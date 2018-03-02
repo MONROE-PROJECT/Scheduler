@@ -1365,7 +1365,7 @@ SELECT DISTINCT * FROM (
                 if len(nodes) < nodecount:
                     self.db().rollback()
                     if i[0] == LPQ_SCHEDULING:
-                        msg = "These nodes are not available for scheduling."
+                        msg = "Only %s/%s nodes are available for scheduling this task." % (len(nodes), nodecount)
                     else:
                         utcstart = datetime.datetime.utcfromtimestamp(int(i[0])).isoformat()
                         utcstop  = datetime.datetime.utcfromtimestamp(int(i[1])).isoformat()
