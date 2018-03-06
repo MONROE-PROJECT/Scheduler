@@ -4,19 +4,17 @@ set -e
 SCHEDID=$1
 STATUS=$2
 VM_OS_DISK=$3
-CONF_DIR=$4
-MOUNT_DISK=$5
+RESULTS_DIR=$4
+CONF_DIR=$5
 OVERRIDE_ENTRYPOINT=$6
 OVERRIDE_PARAMETERS=$7
 
-MNS=???
-
-disk_imae=$VM_OS_DISK
-
+# Hardcoded
+MNS="ip netns exec monroe"
 VTAPPREFIX=macvtap
 
-if [ ! -f "${disk_image}" ]; then
-        echo "Missing disk image (${disk_image}), exiting"
+if [ ! -f "${VM_OS_DISK}" ]; then
+        echo "Missing disk image (${VM_OS_DISK}), exiting"
         exit 1
 fi
 # Enumerate the interfaces and:
@@ -67,7 +65,7 @@ sh \"/bin/echo 'ip route add default via ${GW} src ${IP} table ${MARK}' >> /opt/
 done
 
 # Add the mounts, these must correspond betwen vm and kvm cmd line
-declare -A mounts=( [results]=$BASEDIR/$SCHEDID [config-dir]=$BASEDIR/$SCHEDID-conf/ )
+declare -A mounts=( [results]=$RESULTS_DIR [config-dir]=$CONF_DIR/ )
 for m in "${!mounts[@]}"; do
   OPT=",readonly"
   p=${mounts[$m]}
@@ -77,6 +75,19 @@ for m in "${!mounts[@]}"; do
   fi
   if [[ "${m}" == "results" ]]; then
     OPT=""
+    GUESTFISHDEV="$GUESTFISHDEV
+sh \"/bin/echo 'rm -rf /outdir' >> /opt/monroe/setup-mounts.sh\"
+sh \"/bin/echo 'ln -s /monroe/${m} /outdir' >> /opt/monroe/setup-mounts.sh\""
+  else
+    GUESTFISHDEV="$GUESTFISHDEV
+sh \"/bin/echo 'rm -f /etc/resolv.conf' >> /opt/monroe/setup-mounts.sh\"
+sh \"/bin/echo 'cp /monroe/${m}/resolv.conf /etc/' >> /opt/monroe/setup-mounts.sh\"
+sh \"/bin/echo 'rm -f /monroe/config' >> /opt/monroe/setup-mounts.sh\"
+sh \"/bin/echo 'ln -s /monroe/${m}/config /monroe/' >> /opt/monroe/setup-mounts.sh\"
+sh \"/bin/echo 'rm -f /nodeid' >> /opt/monroe/setup-mounts.sh\"
+sh \"/bin/echo 'ln -s /monroe/${m}/nodeid /nodeid' >> /opt/monroe/setup-mounts.sh\"
+sh \"/bin/echo 'rm -f /dns' >> /opt/monroe/setup-mounts.sh\"
+sh \"/bin/echo 'ln -s /monroe/${m}/dns /dns' >> /opt/monroe/setup-mounts.sh\""
   fi
   KVMDEV="$KVMDEV \
          -fsdev local,security_model=mapped,id=${m},path=${p}${OPT} \
@@ -89,7 +100,7 @@ done
 
 # Modify the vm image to reflect the current interface setup
 guestfish -x <<-EOF
-add ${disk_image}
+add ${VM_OS_DISK}
 run
 mount /dev/sda1 /
 sh "/bin/echo 9p >> /etc/initramfs-tools/modules"
@@ -100,6 +111,7 @@ sh "/usr/sbin/grub-install --recheck --no-floppy /dev/sda"
 sh "/usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg"
 ${GUESTFISHDEV}
 EOF
-echo ${KVMDEV}
+echo "Starting KVM with options : -curses -m 1048 -hda ${VM_OS_DISK} ${KVMDEV}"
+# Sleep a little bit to  let the FD settle 
 sleep 5
-kvm -curses -m 1048 -hda ${disk_image} ${KVMDEV}
+kvm -curses -m 1048 -hda ${VM_OS_DISK} ${KVMDEV}
