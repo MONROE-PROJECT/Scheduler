@@ -1446,6 +1446,9 @@ SELECT DISTINCT * FROM (
                              quota_owner_data WHERE ownerid = ?""" % (expid, total_traffic, nodecount, node_or_pairs, num_intervals, total_num_interfaces),
                              (now, ownerid))
             self.db().commit()
+            # Run checkpoint operation to reduce WAL file size after reader starvation
+            c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            self.db().commit()
             return expid, "Created experiment %s on %s %s " \
                           "as %s intervals." % \
                           (expid, len(nodes), node_or_pairs, len(intervals)), {
