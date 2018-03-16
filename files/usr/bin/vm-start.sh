@@ -2,36 +2,76 @@
 set -e
 
 SCHEDID=$1
-STATUS=$2
-VM_OS_DISK=$3
-RESULTS_DIR=$4
-CONF_DIR=$5
-OVERRIDE_ENTRYPOINT=$6
-OVERRIDE_PARAMETERS=$7
+OVERRIDE_STARTUP=$2
 
 # Hardcoded
 MNS="ip netns exec monroe"
 VTAPPREFIX=macvtap
 
-if [ ! -f "${VM_OS_DISK}" ]; then
-        echo "Missing disk image (${VM_OS_DISK}), exiting"
+BASEDIR=/experiments/user
+STATUSDIR=$BASEDIR
+mkdir -p $BASEDIR
+
+ERROR_IMAGE_NOT_FOUND=12
+ERROR_NETWORK_CONTEXT_NOT_FOUND=11
+
+if [ -f $BASEDIR/$SCHEDID.conf ]; then
+  CONFIG=$(cat $BASEDIR/$SCHEDID.conf);
+  IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
+  IS_VM=$(echo $CONFIG | jq -r '.vm // empty');
+  VM_CONF_DIR=$(echo $CONFIG | jq -r '.vm_conf_dir // empty');
+  VM_OS_DISK=$(echo $CONFIG | jq -r '.vm_os_disk // empty');
+  BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
+  
+fi
+if [ ! -z "$IS_INTERNAL" ]; then
+  BASEDIR=/experiments/monroe${BDEXT}
+  mkdir -p $BASEDIR
+  echo $CONFIG > $BASEDIR/$SCHEDID.conf
+  # redirect output to log file
+  exec > $BASEDIR/start.log 2>&1
+else
+  exec >> $BASEDIR/$SCHEDID/start.log 2>&1
+fi
+
+INTERFACES=$($MNS ls /sys/class/net/)
+
+if [ ! -f "${IS_VM}" ]; then
+        logger -t "VM: The impossible has happened and the vm_start script has been called on a non vm experiment"
         exit 1
 fi
+
+if [ ! -f "${VM_OS_DISK}" ]; then
+        logger -t "VM: Missing disk image (${VM_OS_DISK})"
+        exit $ERROR_IMAGE_NOT_FOUND
+fi
+
+if [ ! -f "${VM_CONF_DIR}" ]; then
+        logger -t "VM: Missing vm configuration dir (${VM_CONF_DIR})"
+        exit 1
+fi
+
+if [ -z "${INTERFACES}" ]; then
+        logger -t "VM: No Interfaces in $MNS"
+        exit $ERROR_NETWORK_CONTEXT_NOT_FOUND
+fi
+
+
 # Enumerate the interfaces and:
 # 1. Create the vtap interfaces
 # 2. Create the kvm cmd line to connect to said interfaces
 # 3. Create the guestfish cmd line to modify the vm to reflect the interfaces
-
+echo -n "VM: Enumerating the Interface... "
 i=1
 KVMDEV=""
 GUESTFISHDEV=""
-for IFNAME in $($MNS ls /sys/class/net/); do
+for IFNAME in ${INTERFACES}; do
   if [[ ${IFNAME} == "lo" ]]; then
     continue
   fi
   VTAPNAME=${VTAPPREFIX}$i
 
-  echo "Doing ${IFNAME} -> ${VTAPNAME}"
+  echo -n "${IFNAME} (-> ${VTAPNAME})... "
   $MNS ip link add link ${IFNAME} name ${VTAPNAME} type macvtap mode bridge
   #sleep 2
   $MNS ip link set dev ${VTAPNAME} up
@@ -63,15 +103,17 @@ sh \"/bin/echo 'ip route add ${NET} dev ${IFNAME} src ${IP} scope link table ${M
 sh \"/bin/echo 'ip route add default via ${GW} src ${IP} table ${MARK}' >> /opt/monroe/setup-routing.sh\""
   i=$((i + 1))
 done
+echo "ok."
 
+echo -n "VM: Adding the shared directories... "
 # Add the mounts, these must correspond betwen vm and kvm cmd line
-declare -A mounts=( [results]=$RESULTS_DIR [config-dir]=$CONF_DIR/ )
+declare -A mounts=( [results]=$BASEDIR/$SCHEDID/ [config-dir]=$VM_CONF_DIR/ )
 for m in "${!mounts[@]}"; do
   OPT=",readonly"
   p=${mounts[$m]}
   if [ ! -d "${p}" ]; then
-  	echo "Missing ${m} directory (${p}), exiting"
-	exit 1
+  	logger -t "VM: Missing ${m} directory (${p}), exiting"
+   	exit 1
   fi
   if [[ "${m}" == "results" ]]; then
     OPT=""
@@ -95,8 +137,15 @@ sh \"/bin/echo 'ln -s /monroe/${m}/dns /dns' >> /opt/monroe/setup-mounts.sh\""
   GUESTFISHDEV="$GUESTFISHDEV
 sh \"/bin/echo '${m} /monroe/${m} 9p trans=virtio 0 0' >> /etc/fstab\"
 sh \"/bin/mkdir -p /monroe/${m}\""
+echo -n "${m}${OPT} (${mounts[$m]})... "
 done
+echo "ok."
 
+if [ ! -z "$OVERRIDE_STARTUP" ]; then
+  echo "VM: Overriding the startup with: $OVERRIDE_STARTUP"
+  GUESTFISHDEV="$GUESTFISHDEV
+sh \"/bin/echo '$OVERRIDE_STARTUP' > /opt/monroe/user-experiment.sh\""
+fi
 
 # Modify the vm image to reflect the current interface setup
 guestfish -x <<-EOF
@@ -111,7 +160,7 @@ sh "/usr/sbin/grub-install --recheck --no-floppy /dev/sda"
 sh "/usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg"
 ${GUESTFISHDEV}
 EOF
-echo "Starting KVM with options : -curses -m 1048 -hda ${VM_OS_DISK} ${KVMDEV}"
-# Sleep a little bit to  let the FD settle 
+# Sleep a little bit to let everything settle
 sleep 5
-kvm -curses -m 1048 -hda ${VM_OS_DISK} ${KVMDEV}
+echo "VM: Starting KVM with options : -curses -m 1048 -hda ${VM_OS_DISK} ${KVMDEV}"
+kvm -curses -m 1048 -hda ${VM_OS_DISK} ${KVMDEV} & echo $! > $BASEDIR/$SCHEDID.pid

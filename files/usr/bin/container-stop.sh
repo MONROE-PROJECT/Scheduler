@@ -9,6 +9,9 @@ BASEDIR=/experiments/user
 STATUSDIR=$BASEDIR
 USAGEDIR=/monroe/usage/netns
 
+MNS="ip netns exec monroe"
+VTAPPREFIX=mvtap-
+
 if [ -f $BASEDIR/$SCHEDID.conf ]; then
   CONFIG=$(cat $BASEDIR/$SCHEDID.conf);
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
@@ -19,12 +22,17 @@ fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
 fi
+
+VM_OS_MNT=$BASEDIR/$SCHEDID.os
+VM_TMP_MNT=$BASEDIR/$SCHEDID.rd
+
 exec > /tmp/cleanup.log 2>&1
 
 CID=$( docker ps -a | grep $CONTAINER | awk '{print $1}' )
 
 echo "Finalize accounting."
 /usr/bin/usage-defaults
+
 
 echo -n "Stopping container... "
 if [ $(docker inspect -f "{{.State.Running}}" $CID 2>/dev/null) ]; then
@@ -41,6 +49,32 @@ if [ $(docker inspect -f "{{.State.Running}}" $CID 2>/dev/null) ]; then
 else
   echo "Container is no longer running.";
 fi
+
+echo -n "Killing vm (if any)... "
+PID=$(cat $BASEDIR/$SCHEDID.pid)
+kill -9 $PID  # Should be more graceful maybe
+sleep 30
+#STATUS=$(ps -q $PID -o state=)
+#if [ -z "$STATUS" ]; then
+#  STATUS="killed"
+#fi
+echo "ok."
+  
+echo -n "Deleting OS disk... "
+umount -f $VM_OS_MNT
+yes|lvremove -f /dev/vg-monroe/virtualization-${SCHEDID}
+echo "ok."
+
+# Deleting ramdisk mount point if existing, if somehow it failed in deployment
+umount -f $VM_TMP_MNT &> /dev/null || true 
+
+echo -n "Deleting vtap interfaces in $MNS..."
+for IFNAME in $($MNS ls /sys/class/net/|grep "${VTAPPREFIX}$SCHEDID-"); do
+  echo -n "${IFNAME}..."
+  $MNS ip link del ${IFNAME}
+done
+echo "ok."
+
 sysevent -t Scheduling.Task.Stopped -k id -v $SCHEDID
 
 if [ -d $BASEDIR/$SCHEDID ]; then
@@ -116,20 +150,14 @@ fi
 echo "ok."
 
 echo -n "Cleaning files... "
-rm -r $BASEDIR/$SCHEDID/tmp*       # remove any tmp files
-rm -r $BASEDIR/$SCHEDID/*.tmp
-rm -r $BASEDIR/$SCHEDID/lost+found # remove lost+found created by fsck
 # any other file should be rsynced by now
 
 umount $BASEDIR/$SCHEDID
 rmdir  $BASEDIR/$SCHEDID
-rm     $BASEDIR/${SCHEDID}.conf
-rm     $STATUSDIR/${SCHEDID}.conf
-rm     $BASEDIR/${SCHEDID}.disk
-rm     $BASEDIR/${SCHEDID}.counter
+mv     $STATUSDIR/${SCHEDID}.traffic  $STATUSDIR/${SCHEDID}-traffic
+rm -rf $BASEDIR/${SCHEDID}.*
+mv     $STATUSDIR/${SCHEDID}-traffic  $STATUSDIR/${SCHEDID}.traffic_
 rm -r  $USAGEDIR/monroe-${SCHEDID}
-cp     $STATUSDIR/${SCHEDID}.traffic  $STATUSDIR/${SCHEDID}.traffic_
-rm     $BASEDIR/${SCHEDID}.pid
 echo "ok."
 
 echo -n "restorting firewall and modem state"

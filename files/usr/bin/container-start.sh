@@ -5,8 +5,6 @@ SCHEDID=$1
 STATUS=$2
 CONTAINER=monroe-$SCHEDID
 
-VM_PADDDING="300" # MB
-
 BASEDIR=/experiments/user
 STATUSDIR=$BASEDIR
 mkdir -p $BASEDIR
@@ -15,10 +13,10 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   CONFIG=$(cat $BASEDIR/$SCHEDID.conf);
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
   IS_SSH=$(echo $CONFIG | jq -r '.ssh // empty');
-  IS_VM=$(echo $CONFIG | jq -r '.vm // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
   EDUROAM_IDENTITY=$(echo $CONFIG | jq -r '._eduroam.identity // empty');
   EDUROAM_HASH=$(echo $CONFIG | jq -r '._eduroam.hash // empty');
+  IS_VM=$(echo $CONFIG | jq -r '.vm // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -74,59 +72,9 @@ echo "ok."
 # setup eduroam if available
 
 if [ ! -z "$EDUROAM_IDENTITY" ]; then
-    /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH &
+    /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH & 
 fi
 
-# Check if we have space for conversion
-
-if [ ! -z "$IS_VM" ]; then
-    echo -n "VM: Checking for disk space... "
-    IMAGE_SIZE=$(docker images --format "{{.Size}}" $CONTAINER | grep MB | tr -dc '0-9.' | tr '.' ',') # Assumes MB as GB/TB is way too big and KB is too small
-    DISKSPACE=$(df /var/lib/docker --output=avail|tail -n1)
-    if [[ -z "$IMAGE_SIZE" || "$DISKSPACE" -lt $(( 100000 + ( $IMAGE_SIZE + $VM_PADDING) * 1024 )) ]]; then
-        logger -t "container-start Insufficient disk space for vm conversion reported: $DISKSPACE";
-        exit $ERROR_INSUFFICIENT_DISK_SPACE;
-    fi
-
-    # Start the conversion
-    echo -n "VM: Image is ${IMAGE_SIZE}Mb, adding ${VM_PADDING}Mb"
-    VM_PADDED_SIZE=$(( IMAGE_SIZE + VM_PADDING ))
-
-    RAMDISK_MP=/tmp/tmpvmramdisk
-    mkdir -p $RAMDISK_MP
-    TMP_VM_FILE=$RAMDISK_MP/$SCHEDID
-
-    echo -n "VM: Creating $VM_PADDED_SIZE Mb ramdisk in $RAMDISK_MP"
-    mount -t tmpfs -o size=${VM_PADDED_SIZE}m tmpfs $RAMDISK_MP
-
-    echo -n "VM: Exporting image content to a tar archive"
-    #doable but slowert due to compression
-    #docker export ${container_id}  | gzip > ${ram_disk_path}/${filesystem_image}.gz
-    VM_CID=$(docker run -d --net=none $CONTAINER ls)
-    docker export $VM_CID > $TMP_VM_FILE
-
-    VM_OS_DIR=/tmp/${SCHEDID}.OS
-    mkdir -p ${VM_OS_DIR}
-
-    echo -n "VM: Creating and mounting ${VM_OS_DIR}"
-    yes|lvcreate -L${VM_PADDED_SIZE} -nvirtualization-${SCHEDID} vg-monroe
-    yes|mkfs.ext4 /dev/vg-monroe/virtualization-${SCHEDID}
-    yes|mount /dev/vg-monroe/virtualization-${SCHEDID} ${VM_OS_DIR}
-
-    VM_OS_DISK="${VM_OS_DIR}/image.qcow2"
-    echo -n "VM: Creating new QCOW2 disk image"
-    virt-make-fs \
-      --size=${VM_PADDED_SIZE}M \
-      --format=qcow2 \
-      --type=ext4 \
-      --partition -- ${TMP_VM_FILE} ${VM_OS_DISK}
-
-    echo "VM: Unmounting ramdisk"
-    rm -f ${TMP_VM_FILE}
-    umount ${RAMDISK_MP}
-    sleep 3
-    rm -rf ${RAMDISK_MP}
-fi
 ### START THE CONTAINER ###############################################
 
 echo -n "Starting container... "
@@ -166,22 +114,15 @@ iptables -P OUTPUT DROP
 iptables -P FORWARD DROP
 sleep 30
 circle start
-
 if [ ! -z "$IS_VM" ]; then
-    mkdir -p $BASEDIR/$SCHEDID-conf
-    cp $BASEDIR/$SCHEDID/resolv.conf.tmp $BASEDIR/$SCHEDID-conf/resolv.conf
-    cp $BASEDIR/$SCHEDID.conf $BASEDIR/$SCHEDID-conf/config
-    cp  /etc/nodeid $BASEDIR/$SCHEDID-conf/nodeid
-    cp /tmp/dnsmasq-servers-netns-monroe.conf $BASEDIR/$SCHEDID-conf/dns
-    ./vm-start.sh $SCHEDID \
-                  $STATUS \
-                  ${VM_OS_DISK} \
-                  $BASEDIR/$SCHEDID \
-                  $BASEDIR/$SCHEDID-conf \
-                  $OVERRIDE_ENTRYPOINT \
-                  $OVERRIDE_PARAMETERS &
+    echo -n " container is a vm, trying to deploy"
+    ./vm-deploy.sh $SCHEDID
+    echo "ok."
+    echo "Starting VM... "
+    # Kicking alive the vm specific stuff
+    ./vm-start.sh $SCHEDID $OVERRIDE_PARAMETERS
 else
-        CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
+    CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
            --name=monroe-$SCHEDID \
            --net=container:$MONROE_NAMESPACE \
            --cap-add NET_ADMIN \
@@ -215,23 +156,32 @@ if [ -z "$IS_VM" ]; then
 
     # PID: the container process ID
     PID=$(docker inspect -f '{{.State.Pid}}' $CID)
+    PNAME="docker"
+    CONTAINER_TECHONOLOGY="container"
+else
+    CID=""
+    PID=$(echo $BASEDIR/$SCHEDID.pid)
+    PNAME="kvm"
+    $CONTAINER_TECHONOLOGY="vm"
+fi
 
-    if [ ! -z $PID ]; then
-      echo "Started docker process $CID $PID."
-    else
-      echo 'failed; container exited immediately' > $STATUSDIR/$SCHEDID.status
-      echo "Container exited immediately."
-      echo "Log output:"
-      docker logs -t $CID_ON_START || true
-      exit $ERROR_CONTAINER_DID_NOT_START;
-    fi
+if [ ! -z $PID ]; then
+  echo "Started $PNAME process $CID $PID."
+else
+  echo "failed; $CONTAINER_TECHONOLOGY exited immediately" > $STATUSDIR/$SCHEDID.status
+  echo "$CONTAINER_TECHONOLOGY exited immediately."
+  if [ -z "$IS_VM" ]; then
+    echo "Log output:"
+    docker logs -t $CID_ON_START || true
+  fi
+  exit $ERROR_CONTAINER_DID_NOT_START;  #Different exit code for VM?
+fi
 
-    echo $PID > $BASEDIR/$SCHEDID.pid
-    if [ -z "$STATUS" ]; then
-      echo 'started' > $STATUSDIR/$SCHEDID.status
-    else
-      echo $STATUS > $STATUSDIR/$SCHEDID.status
-    fi
+echo $PID > $BASEDIR/$SCHEDID.pid
+if [ -z "$STATUS" ]; then
+  echo 'started' > $STATUSDIR/$SCHEDID.status
+else
+  echo $STATUS > $STATUSDIR/$SCHEDID.status
 fi
 sysevent -t Scheduling.Task.Started -k id -v $SCHEDID
 echo "Startup finished $(date)."

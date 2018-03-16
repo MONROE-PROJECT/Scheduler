@@ -39,6 +39,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   [ -z $CONTAINER_URL ] && CONTAINER_URL=$(echo $CONFIG | jq -r .script);
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
+  VM_PRE_DEPLOY=$(echo $CONFIG | jq -r '.vm_pre_deploy // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -155,6 +156,12 @@ fi
 mountpoint -q $EXPDIR || {
     mount -t ext4 -o loop,data=journal,nodelalloc,barrier=1 $EXPDIR.disk $EXPDIR;
 }
+
+# We have a VM that wants to be pre-deployed 
+# Default off as the conversion might consume too much diskpace
+if [ ! -z "$VM_PRE_DEPLOY" ]; then
+    ./vm-deploy.sh $SCHEDID
+fi
 
 if [[ ! -z "$SUM" ]]; then
   JSON=$( echo '{}' | jq .deployment=$SUM )
