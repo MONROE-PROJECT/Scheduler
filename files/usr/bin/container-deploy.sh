@@ -60,7 +60,7 @@ fi
 echo "ok."
 
 echo -n "Checking for running experiments" 
-RUNNING_EXPERIMENTS=$(usr/bin/experiments)
+RUNNING_EXPERIMENTS=$(/usr/bin/experiments)
 if [ ! -z "$RUNNING_EXPERIMENTS" ]; then
   logger -t "container-deploy running experiment(s) reported: $RUNNING_EXPERIMENTS"
   exit $ERROR_EXPERIMENT_IN_PROGRESS
