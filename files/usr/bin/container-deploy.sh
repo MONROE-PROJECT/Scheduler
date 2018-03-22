@@ -59,7 +59,7 @@ if (( "$DISKSPACE" < $(( 100000 + $QUOTA_DISK_KB )) )); then
 fi
 echo "ok."
 
-echo -n "Checking for running experiments" 
+echo -n "Checking for running experiments... " 
 RUNNING_EXPERIMENTS=$(/usr/bin/experiments)
 if [ ! -z "$RUNNING_EXPERIMENTS" ]; then
   logger -t "container-deploy running experiment(s) reported: $RUNNING_EXPERIMENTS"
