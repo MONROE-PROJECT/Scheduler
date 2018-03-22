@@ -184,6 +184,8 @@ class SchedulingClient:
                 self.set_status(id, "delayed; cannot deploy while node is in maintenance mode")
             elif pro.returncode == 104:  # BACKGROUND_DOWNLOAD
                 self.set_status(id, "delayed; container downloading in background")
+            elif pro.returncode == 105:  # EXPERIMENT RUNNING
+                self.set_status(id, "delayed; currently running another experiment")
             return
 
         now  = int(time.time())
