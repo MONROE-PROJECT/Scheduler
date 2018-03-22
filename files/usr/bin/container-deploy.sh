@@ -20,6 +20,7 @@ ERROR_INSUFFICIENT_DISK_SPACE=101
 ERROR_QUOTA_EXCEEDED=102
 ERROR_MAINTENANCE_MODE=103
 ERROR_CONTAINER_DOWNLOADING=104
+ERROR_EXPERIMENT_IN_PROGRESS=105
 
 echo -n "Checking for maintenance mode... "
 MAINTENANCE=$(cat /monroe/maintenance/enabled || echo 0)
@@ -57,6 +58,15 @@ if (( "$DISKSPACE" < $(( 100000 + $QUOTA_DISK_KB )) )); then
     exit $ERROR_INSUFFICIENT_DISK_SPACE;
 fi
 echo "ok."
+
+echo -n "Checking for running experiments" 
+RUNNING_EXPERIMENTS=$(usr/bin/experiments)
+if [ ! -z "$RUNNING_EXPERIMENTS" ]; then
+  logger -t "container-deploy running experiment(s) reported: $RUNNING_EXPERIMENTS"
+  exit $ERROR_EXPERIMENT_IN_PROGRESS
+fi
+echo "ok."
+
 
 EXISTED=$(docker images -q $CONTAINER_URL)
 
