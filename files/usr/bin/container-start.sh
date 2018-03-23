@@ -14,6 +14,8 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
   IS_SSH=$(echo $CONFIG | jq -r '.ssh // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
+  EDUROAM_IDENTITY=$(echo $CONFIG | jq -r '._eduroam.identity // empty');
+  EDUROAM_HASH=$(echo $CONFIG | jq -r '._eduroam.hash // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -66,6 +68,12 @@ CONFIG=$(echo $CONFIG | jq '.guid="'$GUID'"|.nodeid="'$NODEID'"')
 echo $CONFIG > $BASEDIR/$SCHEDID.conf
 echo "ok."
 
+# setup eduroam if available
+
+if [ ! -z "$EDUROAM_IDENTITY" ]; then
+    /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH & 
+fi
+
 ### START THE CONTAINER ###############################################
 
 echo -n "Starting container... "
@@ -84,8 +92,8 @@ fi
 
 # identify the monroe/noop container, running in the
 # network namespace called 'monroe'
-MONROE_NOOP=$(docker ps |grep monroe/noop|awk '{print $1}')
-if [ -z "$MONROE_NOOP" ]; then
+MONROE_NAMESPACE=$(docker ps --no-trunc -aqf name=monroe-namespace)
+if [ -z "$MONROE_NAMESPACE" ]; then
     echo "network context missing."
     exit $ERROR_NETWORK_CONTEXT_NOT_FOUND;
 fi
@@ -97,9 +105,18 @@ fi
 
 cp /etc/resolv.conf $BASEDIR/$SCHEDID/resolv.conf.tmp
 
+# drop all network traffic for 30 seconds (idle period)
+nohup /bin/bash -c 'sleep 35; circle start' &
+iptables -F
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+sleep 30
+circle start
+
 CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
        --name=monroe-$SCHEDID \
-       --net=container:$MONROE_NOOP \
+       --net=container:$MONROE_NAMESPACE \
        --cap-add NET_ADMIN \
        --cap-add NET_RAW \
        -v $BASEDIR/$SCHEDID/resolv.conf.tmp:/etc/resolv.conf \

@@ -14,6 +14,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
   STARTTIME=$(echo $CONFIG | jq -r '.start // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
+  EDUROAM_IDENTITY=$(echo $CONFIG | jq -r '._eduroam.identity // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -94,6 +95,15 @@ docker rm $(docker ps -aq) 2>/dev/null
 docker rmi $(docker images -a|grep '^<none>'|awk "{print \$3}") 2>/dev/null
 echo "ok."
 
+if [ ! -z "$EDUROAM_IDENTITY" ]; then
+    echo -n "Deleting EDUROAM credentials... "
+    rm /etc/wpa_supplicant/wpa_supplicant.eduroam.conf
+    pkill wpa_supplicant
+    iwconfig wlan0 ap 00:00:00:00:00:00
+    ifconfig wlan0 0.0.0.0 down
+    echo "ok."
+fi
+
 echo -n "Syncing results... "
 if [ ! -z "$IS_INTERNAL" ]; then
     monroe-rsync-results;
@@ -111,15 +121,23 @@ rm -r $BASEDIR/$SCHEDID/*.tmp
 rm -r $BASEDIR/$SCHEDID/lost+found # remove lost+found created by fsck
 # any other file should be rsynced by now
 
-umount $BASEDIR/$SCHEDID            
-rmdir  $BASEDIR/$SCHEDID            
-rm     $BASEDIR/${SCHEDID}.conf     
-rm     $STATUSDIR/${SCHEDID}.conf   
-rm     $BASEDIR/${SCHEDID}.disk     
-rm     $BASEDIR/${SCHEDID}.counter  
-rm -r  $USAGEDIR/monroe-${SCHEDID}  
-cp     $STATUSDIR/${SCHEDID}.traffic  $STATUSDIR/${SCHEDID}.traffic_ 
+umount $BASEDIR/$SCHEDID
+rmdir  $BASEDIR/$SCHEDID
+rm     $BASEDIR/${SCHEDID}.conf
+rm     $STATUSDIR/${SCHEDID}.conf
+rm     $BASEDIR/${SCHEDID}.disk
+rm     $BASEDIR/${SCHEDID}.counter
+rm -r  $USAGEDIR/monroe-${SCHEDID}
+cp     $STATUSDIR/${SCHEDID}.traffic  $STATUSDIR/${SCHEDID}.traffic_
 fi
 rm     $BASEDIR/${SCHEDID}.pid
 echo "ok."
+
+echo -n "restorting firewall and modem state"
+circle restart
+for ip4table in $(modems|jq .[].ip4table); do
+  curl -s -X POST http://localhost:88/modems/${ip4table}/usbreset;
+done
+echo "ok."
+
 echo "Cleanup finished $(date)."

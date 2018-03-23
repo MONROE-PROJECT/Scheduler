@@ -86,7 +86,7 @@ only for administrators (role: admin)
   * PUT  resources/#      type=tag:value[,tag:value,...]   (set nodetypes for filtering, overriding inventory)
   * PUT  resources/#      pair=#|delete                    (associate with another node as head/tail pair)
   * PUT  resources/#      iccid=&quota=                    (update interface quotas)
-  * POST users            name=&project=&ssl=              (ssl fingerprint)
+  * POST users            role=&name=&project=&ssl=        (create new users)
   * PUT  users/#          data=&time=&storage=             (update user quotas)
   * PUT  users/#          ssl=                             (update user ssl fingerprint)
   * DELETE users/#
