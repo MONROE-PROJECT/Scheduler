@@ -271,11 +271,11 @@ class SchedulingClient:
     def report_traffic(self, schedid, traffic):
         # some logic to skip duplicate reports when files are touched
         msg_hash=sha(str(schedid)+json.dumps(traffic)).hexdigest()
-        if msg_hash in recent_traffic_reports:
+        if msg_hash in self.recent_traffic_reports:
             return
-        if len(recent_traffic_reports)>100:
-            recent_traffic_reports.pop(0)
-        recent.traffic.reports.append(msg_hash)
+        if len(self.recent_traffic_reports)>100:
+            self.recent_traffic_reports.pop(0)
+        self.recent_traffic_reports.append(msg_hash)
 
         log.debug("Traffic report for task %s is %s" % (schedid, json.dumps(traffic)))
         traffic_msg = {
