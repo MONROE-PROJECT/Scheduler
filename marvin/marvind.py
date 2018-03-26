@@ -65,10 +65,9 @@ PRIO_1000MB = 15
 class SchedulingClient:
     running = threading.Event()
     jobs = {}
-    status_queue = {}
-    # delayed status updates to be sent when we are online
-    traffic_queue = {}
-    # actually traffic reports, but I like the name
+    status_queue = {}    # delayed status updates to be sent when we are online
+    traffic_queue = {}   # actually traffic reports, but I like the name
+    recent_traffic_reports = []
 
     def stop(self):
         """soft interrupt signal, for use when threading"""
@@ -269,6 +268,14 @@ class SchedulingClient:
         self.post_status()
 
     def report_traffic(self, schedid, traffic):
+        # some logic to skip duplicate reports when files are touched
+        msg_hash=md5(str(schedid)+json.dumps(traffic)).hexdigest()
+        if msg_hash in recent_traffic_reports:
+            return
+        if len(recent_traffic_reports)>100:
+            recent_traffic_reports.pop(0)
+        recent.traffic.reports.append(msg_hash)
+
         log.debug("Traffic report for task %s is %s" % (schedid, json.dumps(traffic)))
         traffic_msg = {
             "traffic": json.dumps(traffic),
