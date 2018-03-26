@@ -25,6 +25,7 @@ import simplejson as json
 import time
 import traceback
 import threading
+from hashlib import sha1 as sha
 from datetime import datetime
 from subprocess import Popen, PIPE
 
@@ -269,7 +270,7 @@ class SchedulingClient:
 
     def report_traffic(self, schedid, traffic):
         # some logic to skip duplicate reports when files are touched
-        msg_hash=md5(str(schedid)+json.dumps(traffic)).hexdigest()
+        msg_hash=sha(str(schedid)+json.dumps(traffic)).hexdigest()
         if msg_hash in recent_traffic_reports:
             return
         if len(recent_traffic_reports)>100:
