@@ -129,7 +129,6 @@ rm     $BASEDIR/${SCHEDID}.disk
 rm     $BASEDIR/${SCHEDID}.counter
 rm -r  $USAGEDIR/monroe-${SCHEDID}
 cp     $STATUSDIR/${SCHEDID}.traffic  $STATUSDIR/${SCHEDID}.traffic_
-fi
 rm     $BASEDIR/${SCHEDID}.pid
 echo "ok."
 
