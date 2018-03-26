@@ -194,11 +194,10 @@ class Schedule:
             selection = nodes.split(",") if nodes is not None else None
             if selection is None:
                 nodetypes = params.get('nodetypes','')
-                new_nodes = 'model:apu2' in nodetypes
                 ifCount = int(params.get('interfaceCount', 1))
-                tail = new_nodes and (ifCount != 2)
-                head = new_nodes and (ifCount >= 2)
-                pair = new_nodes and (ifCount >= 3)
+                tail = (ifCount != 2)
+                head = (ifCount >= 2)
+                pair = (ifCount >= 3)
             else:
                 nodetypes = ""
                 tail = True
@@ -349,11 +348,10 @@ class Experiment:
 
             if selection is None:
                 nodetypes = params.get('nodetypes','')
-                new_nodes = 'model:apu2' in nodetypes
                 ifCount = params.get('interfaceCount', 1)
-                tail = new_nodes and (ifCount != 2)
-                head = new_nodes and (ifCount >= 2)
-                pair = new_nodes and (ifCount >= 3)
+                tail = (ifCount != 2)
+                head = (ifCount >= 2)
+                pair = (ifCount >= 3)
             else:
                 nodetypes = ''
                 head = True
@@ -390,10 +388,13 @@ class Experiment:
             return error("Experiment id missing.")
         expid=path.split("/")[1]
         experiments = rest_api.scheduler.get_experiments(expid=expid)
+        if experiments is None or len(experiments)==0:
+            web.ctx.status = '404 Not Found'
+            return error("Experiment %s not found." % expid)
         if role != scheduler.ROLE_ADMIN and \
            experiments[0]['ownerid'] != uid:
             web.ctx.status = '401 Unauthorized'
-            return error("Only admins and user %i can do this" % uid)
+            return error("Only admins and user %i can do this" % experiments[0]['ownerid'])
         else:
             result, message, extra = \
                 rest_api.scheduler.delete_experiment(expid)
@@ -483,10 +484,12 @@ class User:
           uid, role, name = rest_api.get_user(web.ctx)
           if "time" in data.keys() or \
              "data" in data.keys() or \
+             "ssl" in data.keys() or \
              "storage" in data.keys():
               if role == scheduler.ROLE_ADMIN:
                   result = rest_api.scheduler.set_time_quota(userid, data.get('time')) \
                          + rest_api.scheduler.set_data_quota(userid, data.get('data')) \
+                         + rest_api.scheduler.set_ssl_id(userid, data.get('ssl')) \
                          + rest_api.scheduler.set_storage_quota(userid, data.get('storage'))
                   if result > 0:
                       return error("Updated.")
@@ -533,7 +536,7 @@ class User:
             result = rest_api.scheduler.delete_user(userid[1:])
             log.debug("Delete result: %s" % result)
             if result is True:
-                return error("Ok. Deleted user, tasks and scheduling entries.")
+                return error("Ok. Invalidated user certificate.")
             else:
                 web.ctx.status = '404 Not Found'
                 return error("Could not find user with that id.")

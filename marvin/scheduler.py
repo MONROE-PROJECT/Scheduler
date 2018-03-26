@@ -66,7 +66,7 @@ POLICY_TASK_PADDING = 2 * 60
 # some default quotas until we have something else defined
 POLICY_DEFAULT_QUOTA_TIME = 100 * 24 * 3600      # 100 Node days
 POLICY_DEFAULT_QUOTA_DATA = 100 * 1000000000     # 100 GB
-POLICY_DEFAULT_QUOTA_STORAGE = 100 * 1000000000  # 100 GB
+POLICY_DEFAULT_QUOTA_STORAGE = 200 * 1000000000  # 200 GB
 POLICY_DEFAULT_QUOTA_MODEM = 100 * 1000000000    # 100 GB
 
 POLICY_TASK_MAX_STORAGE = 1048576 * 1000        # 1000 MiB per node
@@ -442,6 +442,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         self.db().commit()
 
     def _set_quota(self, userid, value, table):
+        if value is None: 
+            return 0
         c = self.db().cursor()
         now = int(time.time())
         c.execute("UPDATE %s SET current = ? WHERE ownerid = ?" % table,
@@ -478,6 +480,12 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                       (now, "node_interface", iccid, value, "set by API"))
         self.db().commit()
         return count
+
+    def set_ssl_id(self, userid, ssl):
+        c = self.db().cursor()
+        c.execute("UPDATE owners SET ssl_id = ? WHERE id = ?", (ssl, userid))
+        self.db().commit()
+        return c.rowcount
 
     def get_activity(self):
         activity = {}
@@ -700,10 +708,10 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 write = True
             else:
                 duration = lpq_task['stop']
-                # and there is an available time window...
-                if len(next_tasks) == 0 or \
-                   next_tasks[0]['start'] > now + POLICY_TASK_PADDING * 2 + duration:
-                       # then set execution time to now.
+                if not self.is_maintenance(now + POLICY_TASK_PADDING,
+                   now + POLICY_TASK_PADDING + duration) and \
+                   (len(next_tasks) == 0 or \
+                    next_tasks[0]['start'] > now + POLICY_TASK_PADDING * 2 + duration):
                        lpq_task['start'] = now + POLICY_TASK_PADDING
                        lpq_task['stop'] = now + POLICY_TASK_PADDING + duration
                        write = True
@@ -1280,6 +1288,8 @@ SELECT DISTINCT * FROM (
                 return None, error_message, {}
 
         for script in scripts:
+            if re.match("^[!#$&-;=?-\[\]_a-z~]+$", script) is None:
+                return None, "Container URL contains invalid characters", {}
             if DEPLOYMENT_RE.match(script) is None:
                 if ['type:deployed'] in type_require:
                     return None, "Deployed nodes can only schedule experiments " \
@@ -1377,7 +1387,7 @@ SELECT DISTINCT * FROM (
                 if len(nodes) < nodecount:
                     self.db().rollback()
                     if i[0] == LPQ_SCHEDULING:
-                        msg = "These nodes are not available for scheduling."
+                        msg = "Only %s/%s nodes are available for scheduling this task." % (len(nodes), nodecount)
                     else:
                         utcstart = datetime.datetime.utcfromtimestamp(int(i[0])).isoformat()
                         utcstop  = datetime.datetime.utcfromtimestamp(int(i[1])).isoformat()
@@ -1457,6 +1467,9 @@ SELECT DISTINCT * FROM (
                              "experiment #%s requested %i bytes (%i %s, %i intervals, %i interfaces)" FROM
                              quota_owner_data WHERE ownerid = ?""" % (expid, total_traffic, nodecount, node_or_pairs, num_intervals, total_num_interfaces),
                              (now, ownerid))
+            self.db().commit()
+            # Run checkpoint operation to reduce WAL file size after reader starvation
+            c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             self.db().commit()
             return expid, "Created experiment %s on %s %s " \
                           "as %s intervals." % \

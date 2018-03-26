@@ -29,11 +29,11 @@ recovered on restart.
 
     routes = (
       '/version'          - protocol version number (GET)
-      '/v1/resources(|/.*)'   - node, type and status (GET, PUT)
-      '/v1/users(|/.*)'       - users (GET, POST, DELETE)
-      '/v1/experiments(|/.*)' - task definitions (GET, POST, DELETE)
-      '/v1/schedules(|/.*)'   - scheduled tasks (GET, PUT)
-      '/v1/backend(/.*)'     - backend actions (various)
+      '/resources(|/.*)'   - node, type and status (GET, PUT)
+      '/users(|/.*)'       - users (GET, PUT, POST, DELETE)
+      '/experiments(|/.*)' - task definitions (GET, POST, DELETE)
+      '/schedules(|/.*)'   - scheduled tasks (GET, PUT)
+      '/backend(/.*)'     - backend actions (various)
     )
 
 #### Terminology:
@@ -88,6 +88,7 @@ only for administrators (role: admin)
   * PUT  resources/#      iccid=&quota=                    (update interface quotas)
   * POST users            role=&name=&project=&ssl=        (create new users)
   * PUT  users/#          data=&time=&storage=             (update user quotas)
+  * PUT  users/#          ssl=                             (update user ssl fingerprint)
   * DELETE users/#
 
 only for a node with the given id # (role: node)
