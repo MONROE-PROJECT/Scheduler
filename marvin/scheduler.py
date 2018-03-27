@@ -548,8 +548,6 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         return report
 
     def get_users(self, userid=None, ssl=None):
-        self.check_quotas()
-
         c = self.db().cursor()
         query = """SELECT o.*, t.current as quota_time,
                                d.current as quota_data,
@@ -559,10 +557,11 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                      JOIN quota_owner_data d ON d.ownerid = o.id
                      JOIN quota_owner_storage s ON s.ownerid = o.id
                 """
-        if userid is not None:
+        if ssl is not None:
+            c.execute("SELECT o.* FROM owners o WHERE ssl_id = ?", (ssl,))
+        elif userid is not None:
+            self.check_quotas()
             c.execute(query + " where id = ?", (userid,))
-        elif ssl is not None:
-            c.execute(query + " where ssl_id = ?", (ssl,))
         else:
             c.execute(query)
         userrows = c.fetchall()
@@ -1290,7 +1289,7 @@ SELECT DISTINCT * FROM (
         for script in scripts:
             if re.match("^[!#$&-;=?-\[\]_a-z~]+$", script) is None:
                 return None, "Container URL contains invalid characters", {}
-            if DEPLOYMENT_RE.match(script) is None:
+            if DEPLOYMENT_RE.match(script) is None and user != 2:
                 if ['type:deployed'] in type_require:
                     return None, "Deployed nodes can only schedule experiments " \
                                  "hosted by %s" % DEPLOYMENT_SERVER, {}

@@ -105,8 +105,26 @@ class Resource:
             return error("Updating collection not allowed.")
         nodeid = nodeid[1:]
         data = web.input()
-
         uid, role, name = rest_api.get_user(web.ctx)
+
+        if role == scheduler.ROLE_NODE:
+            if name != ("Node %s" % nodeid):
+                web.ctx.status = ''
+                return error("Wrong user to update this status. (%s)" % name)
+            now = int(time.time())
+            maintenance = data.get('maintenance',0)
+            interfaces=json.loads(data.get('interfaces','[]'))
+            rest_api.scheduler.update_node_status(nodeid, now, maintenance, interfaces)
+
+            limit = int(data.get("limit", PREFETCH_COUNT))
+            data = rest_api.scheduler.get_schedule(nodeid=nodeid, limit=limit, interfaces=True,
+                                                   stop=now + PREFETCH_LIMIT, private=True,
+                                                   heartbeat=True)
+            for task in data.get('tasks',[]):
+                if task.get('status') == 'defined':
+                    rest_api.scheduler.set_status(task.get('id'), 'requested')
+            return dumps(data)
+
         if "pair" in data.keys():
             if role == scheduler.ROLE_ADMIN:
                 tail = data['pair']
@@ -150,29 +168,11 @@ class Resource:
                 web.ctx.status = '401 Unauthorized'
                 return error("You'd have to be an admin to do that")
 
+        web.ctx.status = '400 Bad Request'
+        return error("Parameters missing: type\nIf you are a node, "
+                     "you were identified as SSL_ID %s." %
+                     web.ctx.env.get('HTTP_SSL_FINGERPRINT', None))
 
-        if role == scheduler.ROLE_NODE:
-            if name != ("Node %s" % nodeid):
-                web.ctx.status = ''
-                return error("Wrong user to update this status. (%s)" % name)
-            now = int(time.time())
-            maintenance = data.get('maintenance',0)
-            interfaces=json.loads(data.get('interfaces','[]'))
-            rest_api.scheduler.update_node_status(nodeid, now, maintenance, interfaces)
-
-            limit = int(data.get("limit", PREFETCH_COUNT))
-            data = rest_api.scheduler.get_schedule(nodeid=nodeid, limit=limit, interfaces=True,
-                                                   stop=now + PREFETCH_LIMIT, private=True,
-                                                   heartbeat=True)
-            for task in data.get('tasks',[]):
-                if task.get('status') == 'defined':
-                    rest_api.scheduler.set_status(task.get('id'), 'requested')
-            return dumps(data)
-        else:
-            web.ctx.status = '400 Bad Request'
-            return error("Parameters missing: type\nIf you are a node, "
-                         "you were identified as SSL_ID %s." %
-                         web.ctx.env.get('HTTP_SSL_FINGERPRINT', None))
 
 # SCHEDULE ##################################################################
 
