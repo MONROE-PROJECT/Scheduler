@@ -28,31 +28,30 @@ log = logging.getLogger('marvinctld')
 log.addHandler(WatchedFileHandler(config['log']['file']))
 log.setLevel(config['log']['level'])
 
-from geniam import FederationAM
+#from geniam import FederationAM
 from restapi import RestAPI
 from scheduler import Scheduler
-
 
 def main():
     try:
         scheduler = Scheduler()
-        am = FederationAM(scheduler)
-        t2 = threading.Thread(target=am.start)
+        #am = FederationAM(scheduler)
+        #t2 = threading.Thread(target=am.start)
         rest = RestAPI(scheduler)
         t3 = threading.Thread(target=rest.start)
-        t2.start()
+        #t2.start()
         t3.start()
         while True:
-            time.sleep(1)
+            time.sleep(10)
     except (KeyboardInterrupt, SystemExit):
         log.warning("Received interrupt in main")
         try:
-            am.stop()
+            #am.stop()
             rest.stop()
         except:
             pass
         try:
-            t2.join()
+            #t2.join()
             t3.join()
         except:
             pass
