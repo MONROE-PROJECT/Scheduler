@@ -384,6 +384,7 @@ class SchedulingClient:
 
     def update_schedule(self, data):
         schedule = data[:PREFETCH_LIMIT] # download the first three tasks only
+        known_taskids = []
 
         # FIRST update scheduled tasks from atq
         jobs = self.read_jobs()
@@ -406,6 +407,7 @@ class SchedulingClient:
             stophook = self.stophook + " " + schedid
 
             if starthook in known:
+                known_taskids.append(schedid)
                 log.debug("task %s is known and scheduled." % schedid)
                 if not stophook in known:
                     # FIXME: we'll actually have to check if the wrapup task exists,
@@ -414,6 +416,7 @@ class SchedulingClient:
                     pass
                 continue
             elif stophook in known:
+                known_taskids.append(schedid)
                 log.debug("task %s is known and started." % schedid)
                 try:
                     fd = open("%s/%s.pid" % (self.statdir, schedid))
@@ -448,6 +451,9 @@ class SchedulingClient:
                         "Fetching experiment %s did not return a task "
                         "definition, but %s" % (expid, task))
 
+
+        self.known_taskids = known_taskids
+
         # FINALLY read and post task status and traffic usage
         try:
             statfiles = glob(self.statdir + "/*.status")
@@ -475,7 +481,7 @@ class SchedulingClient:
 
                     fd.close()
         except Exception,ex:
-	    log.error("Error fetching traffic report. (%s)", ex) 
+	    log.error("Error fetching traffic report. (%s)", ex)
 
 
     def get_maintenance_mode(self):
@@ -496,6 +502,7 @@ class SchedulingClient:
         self.deployhook = config['hooks']['deploy']
         self.statdir = config['status_directory']
         self.confdir = config['config_directory']
+        self.known_taskids = []
 
         while True:
             try:
@@ -534,6 +541,7 @@ class SchedulingClient:
                         route,
                         data={"limit": PREFETCH_LIMIT,
                               "maintenance": maintenance,
+                              "known_tasks": self.known_taskids,
                               "interfaces": interfaces},
                         cert=self.cert,
                         verify=False,
