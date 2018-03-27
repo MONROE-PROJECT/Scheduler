@@ -7,6 +7,7 @@ from itertools import chain
 import logging
 from logging.handlers import WatchedFileHandler
 import os
+from random import randint
 import re
 import simplejson as json
 import sqlite3 as db
@@ -646,7 +647,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
     def get_schedule(self, schedid=None, expid=None, nodeid=None,
                      userid=None, past=False, start=0, stop=0, limit=0,
                      private=False, compact=False, interfaces=False,
-                     heartbeat=False, lpq=False):
+                     heartbeat=False, lpq=False, known=[]):
         """Return scheduled jobs.
 
         Keywords arguments:
@@ -674,15 +675,15 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         orderq = " ORDER BY s.start ASC"
         if limit > 0:
             orderq += " LIMIT %i" % limit
-        if schedid is not None:
+        if nodeid is not None:
+            c.execute(
+                selectq + " FROM schedule s WHERE s.nodeid=?" + pastq + orderq, (nodeid,))
+        elif schedid is not None:
             c.execute(
                 selectq + " FROM schedule s WHERE s.id = ?" + pastq + orderq, (schedid,))
         elif expid is not None:
             c.execute(
                 selectq + " FROM schedule s WHERE s.expid = ?" + pastq + orderq, (expid,))
-        elif nodeid is not None:
-            c.execute(
-                selectq + " FROM schedule s WHERE s.nodeid=?" + pastq + orderq, (nodeid,))
         elif userid is not None:
             c.execute(selectq + " FROM schedule s, experiments t "
                       "WHERE s.expid = t.id AND t.ownerid=?" +
@@ -692,11 +693,13 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         taskrows = c.fetchall()
         tasks = [dict(x) for x in taskrows]
 
+        if limit > 0:
+            tasks = tasks[:limit]
+
         # handle LPQ tasks: if start is undefined...
-        num_tasks = len(tasks)
         next_tasks = [t for t in tasks if int(t.get('start')) != LPQ_SCHEDULING]
 
-        if num_tasks > 0 and tasks[0]['start'] == LPQ_SCHEDULING and heartbeat:
+        if heartbeat and len(tasks) > 0 and tasks[0]['start'] == LPQ_SCHEDULING:
             # TODO: handle exceeded execution window.
             lpq_task = tasks[0]
 
@@ -733,6 +736,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
         if compact is False:
             for x in tasks:
+                if x['id'] in known:
+                    continue
                 x['deployment_options'] = json.loads(
                     x.get('deployment_options', '{}'))
                 if not private:
@@ -744,12 +749,12 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                     c.execute("SELECT meter,value FROM traffic_reports WHERE schedid=?",
                               (x.get('id'),))
                     x['report']=dict([(r[0],r[1]) for r in c.fetchall()])
-        if limit > 0:
-            tasks = tasks[:limit]
         if (interfaces is True) and (nodeid is not None):
-            c.execute("SELECT iccid, quota_current FROM node_interface where nodeid=?", (nodeid,))
-            ifrows = c.fetchall()
-            interfaces = [dict(x) for x in ifrows]
+            interfaces = {}
+            if randint(0,99)==0: # we don't need this data all too often
+                c.execute("SELECT iccid, quota_current FROM node_interface where nodeid=?", (nodeid,))
+                ifrows = c.fetchall()
+                interfaces = [dict(x) for x in ifrows]
             return {"interfaces":interfaces, "tasks":tasks}
         else:
             #FIXME: use dict format for all return values

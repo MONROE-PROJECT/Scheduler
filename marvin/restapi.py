@@ -113,13 +113,14 @@ class Resource:
                 return error("Wrong user to update this status. (%s)" % name)
             now = int(time.time())
             maintenance = data.get('maintenance',0)
+            known = data.get('known_tasks',[])
             interfaces=json.loads(data.get('interfaces','[]'))
             rest_api.scheduler.update_node_status(nodeid, now, maintenance, interfaces)
 
             limit = int(data.get("limit", PREFETCH_COUNT))
             data = rest_api.scheduler.get_schedule(nodeid=nodeid, limit=limit, interfaces=True,
                                                    stop=now + PREFETCH_LIMIT, private=True,
-                                                   heartbeat=True)
+                                                   heartbeat=True, known=known)
             for task in data.get('tasks',[]):
                 if task.get('status') == 'defined':
                     rest_api.scheduler.set_status(task.get('id'), 'requested')
