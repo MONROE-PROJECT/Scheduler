@@ -659,16 +659,18 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         """
 
         c = self.db().cursor()
-        now, start, stop = int(time.time()), int(start), int(stop)
-        period = self.get_scheduling_period()
+        start = int(start)
+        stop = int(stop)
         if start == 0:
+            now = int(time.time())
             start = now
         if stop == 0:
+            period = self.get_scheduling_period()
             stop = period[1]
-        if compact:
-            selectq = "SELECT s.nodeid, s.start, s.stop, e.ownerid"
-        else:
+        if compact is False:
             selectq = "SELECT *"
+        else:
+            selectq = "SELECT s.nodeid, s.start, s.stop, e.ownerid"
         pastq = (
                     " AND (NOT (s.start>%i OR s.stop<%i) OR s.start = -1) " % (stop, start)
                 ) if not past else ""
@@ -702,6 +704,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         if heartbeat and len(tasks) > 0 and tasks[0]['start'] == LPQ_SCHEDULING:
             # TODO: handle exceeded execution window.
             lpq_task = tasks[0]
+            now = int(time.time())
 
             write = False
             if lpq_task['status'] != 'defined':
@@ -736,15 +739,13 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
         if compact is False:
             for x in tasks:
-                if x['id'] in known:
-                    continue
                 x['deployment_options'] = json.loads(
                     x.get('deployment_options', '{}'))
                 if not private:
                     for key in x['deployment_options'].keys():
                         if key[0]=='_':
                             del x['deployment_options'][key]
-            if len(tasks)==1:
+            if schedid is not None and len(tasks)==1:
                 for x in tasks:
                     c.execute("SELECT meter,value FROM traffic_reports WHERE schedid=?",
                               (x.get('id'),))
