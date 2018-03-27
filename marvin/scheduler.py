@@ -801,6 +801,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                 self.db().commit()
                 if c.rowcount == 1:
                     return True, "Ok."
+            elif code in TASK_FINAL_CODES:
+                return True, "Status already set."
             else:
                 return False, "Status %s cannot be reset." % str(oldstat)
         return False, "Unknown status code (%s)." % str(status)
