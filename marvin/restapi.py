@@ -574,6 +574,7 @@ class Backend:
                 activity = rest_api.scheduler.get_activity()
                 return dumps(activity)
         elif action == "/pubkeys":
+            web.ctx.status = '200 Ok'
             keys = rest_api.scheduler.get_public_keys()
             return dumps(keys)
         else:
