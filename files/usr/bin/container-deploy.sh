@@ -39,7 +39,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   [ -z $CONTAINER_URL ] && CONTAINER_URL=$(echo $CONFIG | jq -r .script);
   IS_INTERNAL=$(echo $CONFIG | jq -r '.internal // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
-  VM_PRE_DEPLOY=$(echo $CONFIG | jq -r '.vm_pre_deploy // empty');
+  #VM_PRE_DEPLOY=$(echo $CONFIG | jq -r '.vm_pre_deploy // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}

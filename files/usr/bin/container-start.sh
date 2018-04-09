@@ -28,6 +28,8 @@ else
   exec >> $BASEDIR/$SCHEDID/start.log 2>&1
 fi
 
+VM_CONF_DIR=$BASEDIR/$SCHEDID.confdir
+
 NOERROR_CONTAINER_IS_RUNNING=0
 
 ERROR_CONTAINER_DID_NOT_START=10
@@ -107,7 +109,7 @@ fi
 cp /etc/resolv.conf $BASEDIR/$SCHEDID/resolv.conf.tmp
 
 # drop all network traffic for 30 seconds (idle period)
-nohup /bin/bash -c 'sleep 35; circle start' &
+nohup /bin/bash -c 'sleep 35; circle start' > /dev/null &
 iptables -F
 iptables -P INPUT DROP
 iptables -P OUTPUT DROP
@@ -115,12 +117,20 @@ iptables -P FORWARD DROP
 sleep 30
 circle start
 if [ ! -z "$IS_VM" ]; then
-    echo -n " container is a vm, trying to deploy"
+    echo "Container is a vm, trying to deploy... "
     ./vm-deploy.sh $SCHEDID
+    echo -n "Copying vm config files..."
+    mkdir -p $VM_CONF_DIR
+    cp $BASEDIR/$SCHEDID/resolv.conf.tmp $VM_CONF_DIR/resolv.conf
+    cp $BASEDIR/$SCHEDID.conf $VM_CONF_DIR/config
+    cp  /etc/nodeid $VM_CONF_DIR/nodeid
+    cp /tmp/dnsmasq-servers-netns-monroe.conf $VM_CONF_DIR/dns
     echo "ok."
+
     echo "Starting VM... "
     # Kicking alive the vm specific stuff
     ./vm-start.sh $SCHEDID $OVERRIDE_PARAMETERS
+    echo "vm started." 
 else
     CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
            --name=monroe-$SCHEDID \
@@ -134,8 +144,8 @@ else
            $MOUNT_DISK \
            $TSTAT_DISK \
            $CONTAINER $OVERRIDE_PARAMETERS)
+	   echo "ok."
 fi
-echo "ok."
 
 # start accounting
 echo "Starting accounting."
@@ -160,9 +170,9 @@ if [ -z "$IS_VM" ]; then
     CONTAINER_TECHONOLOGY="container"
 else
     CID=""
-    PID=$(echo $BASEDIR/$SCHEDID.pid)
+    PID=$(cat $BASEDIR/$SCHEDID.pid)
     PNAME="kvm"
-    $CONTAINER_TECHONOLOGY="vm"
+    CONTAINER_TECHONOLOGY="vm"
 fi
 
 if [ ! -z $PID ]; then
