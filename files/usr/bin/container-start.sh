@@ -129,7 +129,7 @@ if [ ! -z "$IS_VM" ]; then
 
     echo "Starting VM... "
     # Kicking alive the vm specific stuff
-    ./vm-start.sh $SCHEDID $OVERRIDE_PARAMETERS
+    /usr/bin/vm-start.sh $SCHEDID $OVERRIDE_PARAMETERS
     echo "vm started." 
 else
     CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
