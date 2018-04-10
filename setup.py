@@ -14,7 +14,7 @@ setup(
     ], },
     data_files = [
       ('/etc/', ['files/etc/marvind.conf']),
-      ('/usr/bin/', ['files/usr/bin/container-stop.sh', 'files/usr/bin/container-start.sh', 'files/usr/bin/container-deploy.sh']),
+      ('/usr/bin/', ['files/usr/bin/container-stop.sh', 'files/usr/bin/container-start.sh', 'files/usr/bin/container-deploy.sh', 'files/usr/bin/eduroam-login.sh', 'files/usr/bin/vm-deploy.sh']),
       ('/lib/systemd/system/', ['files/lib/systemd/system/marvind.service']),
       ('/DEBIAN/', ['files/DEBIAN/postinst','files/DEBIAN/prerm']),
       ('/etc/cron.d/', ['files/etc/cron.d/marvind']),
