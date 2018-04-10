@@ -69,7 +69,7 @@ echo -n "vm-deploy: Exporting image content to a tar archive... "
 #doable but slowert due to compression
 #docker export ${container_id}  | gzip > ${ram_disk_path}/${filesystem_image}.gz
 VM_CID=$(docker run -d --net=none  monroe-$SCHEDID ls)
-docker export $VM_CID > ${TMP_VM_FILE}
+(docker export $VM_CID > ${TMP_VM_FILE})
 docker rm -f $VM_CID &> /dev/null || true
 docker rmi monroe-$SCHEDID &> /dev/null || true
 echo "ok." 
@@ -90,6 +90,7 @@ virt-make-fs \
     --type=ext4 \
     --partition -- ${TMP_VM_FILE} ${VM_OS_DISK}
 echo "ok."
+
 echo -n "vm-deploy: Unmounting ramdisk... "
 umount -f ${VM_TMP_MNT}
 echo "ok."
