@@ -160,7 +160,7 @@ mountpoint -q $EXPDIR || {
 # We have a VM that wants to be pre-deployed 
 # Default off as the conversion might consume too much diskpace
 if [ ! -z "$VM_PRE_DEPLOY" ]; then
-    ./vm-deploy.sh $SCHEDID
+    /usr/bin/vm-deploy.sh $SCHEDID
 fi
 
 if [[ ! -z "$SUM" ]]; then

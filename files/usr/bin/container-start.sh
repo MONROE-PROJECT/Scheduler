@@ -118,7 +118,7 @@ sleep 30
 circle start
 if [ ! -z "$IS_VM" ]; then
     echo "Container is a vm, trying to deploy... "
-    ./vm-deploy.sh $SCHEDID
+    /usr/bin/vm-deploy.sh $SCHEDID
     echo -n "Copying vm config files..."
     mkdir -p $VM_CONF_DIR
     cp $BASEDIR/$SCHEDID/resolv.conf.tmp $VM_CONF_DIR/resolv.conf
