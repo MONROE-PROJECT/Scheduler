@@ -137,6 +137,7 @@ else
            --net=container:$MONROE_NAMESPACE \
            --cap-add NET_ADMIN \
            --cap-add NET_RAW \
+           --shm-size=1G \
            -v $BASEDIR/$SCHEDID/resolv.conf.tmp:/etc/resolv.conf \
            -v $BASEDIR/$SCHEDID.conf:/monroe/config:ro \
            -v /etc/nodeid:/nodeid:ro \
