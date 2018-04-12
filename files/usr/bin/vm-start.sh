@@ -142,6 +142,7 @@ fi
 
 # Modify the vm image to reflect the current interface setup
 echo -n "vm-start: configuring vm image... "
+OVERRIDE_GRUB="net.ifnames=0 biosdevname=0 fbcon=map:99 text console=tty0 console=ttyS0"
 guestfish --no-progress-bars > /dev/null <<-EOF
 add ${VM_OS_DISK}
 run
@@ -149,6 +150,8 @@ mount /dev/sda1 /
 sh "/bin/echo 9p >> /etc/initramfs-tools/modules"
 sh "/bin/echo 9pnet >> /etc/initramfs-tools/modules"
 sh "/bin/echo 9pnet_virtio >> /etc/initramfs-tools/modules"
+sh "/bin/echo 'GRUB_CMDLINE_LINUX_DEFAULT=\"${OVERRIDE_GRUB}\"' >> /etc/default/grub"
+sh "/bin/echo 'GRUB_CMDLINE_LINUX=\"${OVERRIDE_GRUB}\"' >> /etc/default/grub"
 sh "/usr/sbin/update-initramfs -u"
 sh "/usr/sbin/grub-install --recheck --no-floppy /dev/sda"
 sh "/usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg"
@@ -159,6 +162,6 @@ echo "ok."
 sleep 5
 #echo -n "vm-start: Starting KVM with options : -nographic -m 1048 -hda ${VM_OS_DISK} ${KVMDEV}... "
 echo -n "vm-start: Starting KVM with options : -nographic -m 1048 ... "
-kvm -nographic -m 1048 -hda ${VM_OS_DISK} ${KVMDEV} &
+kvm -nographic -m 1048 -hda ${VM_OS_DISK} ${KVMDEV}  > $BASEDIR/$SCHEDID/container.log &
 echo $! > $BASEDIR/$SCHEDID.pid
 echo "ok."

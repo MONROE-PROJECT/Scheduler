@@ -97,10 +97,10 @@ virt-make-fs \
     --partition -- ${TMP_VM_FILE} ${VM_OS_DISK}
 echo "ok."
 
-LOCKED_FILE=$(lsof |grep ${TMP_VM_FILE}) || true 
+LOCKED_FILE=$(lsof | grep ${TMP_VM_FILE}) || true # ||true is to not fail if lsof does not find any locked files
 echo -n "vm-deploy: Removing tmp file... "
 if [[ ! -z "$LOCKED_FILE" ]]; then
-    echo "Locked file $LOCKED_FILE"
+    echo "Locked file $LOCKED_FILE, aborting"
     exit 1
 fi
 rm -f ${TMP_VM_FILE}
