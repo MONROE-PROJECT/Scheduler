@@ -11,6 +11,7 @@ USAGEDIR=/monroe/usage/netns
 
 MNS="ip netns exec monroe"
 VTAPPREFIX=mvtap-
+VM_TMP_FILE=/experiments/virtualization.rd/$SCHEDID.tar_dump
 
 if [ -f $BASEDIR/$SCHEDID.conf ]; then
   CONFIG=$(cat $BASEDIR/$SCHEDID.conf);
@@ -24,7 +25,6 @@ if [ ! -z "$IS_INTERNAL" ]; then
 fi
 
 VM_OS_MNT=$BASEDIR/$SCHEDID.os
-VM_TMP_MNT=$BASEDIR/$SCHEDID.rd
 
 exec > /tmp/cleanup.log 2>&1
 
@@ -51,13 +51,15 @@ else
 fi
 
 echo -n "Killing vm (if any)... "
-PID=$(cat $BASEDIR/$SCHEDID.pid)
-kill -9 $PID  # Should be more graceful maybe
-sleep 30
-#STATUS=$(ps -q $PID -o state=)
-#if [ -z "$STATUS" ]; then
-#  STATUS="killed"
-#fi
+if [[ -f $BASEDIR/$SCHEDID.pid && -z "$RUNNING" ]]; then 
+  PID=$(cat $BASEDIR/$SCHEDID.pid)
+  kill -9 $PID  # Should be more graceful maybe
+  sleep 30
+  #STATUS=$(ps -q $PID -o state=)
+  #if [ -z "$STATUS" ]; then
+  #  STATUS="killed"
+  #fi
+fi
 echo "ok."
   
 echo -n "Deleting OS disk... "
@@ -65,8 +67,11 @@ umount -f $VM_OS_MNT
 yes|lvremove -f /dev/vg-monroe/virtualization-${SCHEDID}
 echo "ok."
 
-# Deleting ramdisk mount point if existing, if somehow it failed in deployment
-umount -f $VM_TMP_MNT &> /dev/null || true 
+if [[ -f $VM_TMP_FILE ]]; then 
+  echo -n "Deleting ramdisk file... "
+  rm -f $VM_TMP_FILE &> /dev/null || true 
+  echo "ok."
+fi
 
 echo -n "Deleting vtap interfaces in $MNS..."
 for IFNAME in $($MNS ls /sys/class/net/|grep "${VTAPPREFIX}$SCHEDID-"); do
