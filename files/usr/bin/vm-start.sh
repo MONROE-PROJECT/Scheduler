@@ -88,6 +88,7 @@ for IFNAME in ${INTERFACES}; do
 sh \"/bin/sed -e 's/##NAME##/${NAME}/g' /etc/network/netdev-template > /etc/network/interfaces.d/${IFNAME}\"
 sh \"/bin/sed -i -e 's/##IP##/${IP}/g' /etc/network/interfaces.d/${IFNAME}\"
 sh \"/bin/sed -i -e 's/##NM##/${NM}/g' /etc/network/interfaces.d/${IFNAME}\"
+sh \"/bin/sed -i -e 's/##GW##/${GW}/g' /etc/network/interfaces.d/${IFNAME}\"
 sh \"/bin/sed -e 's/##MAC##/${MAC}/g' -e 's/##NAME##/${NAME}/g' /etc/network/persistent-net.rules-template >> /etc/udev/rules.d/70-persistent-net.rules\"
 sh \"/bin/echo 'ip rule add from ${IP} table ${MARK} pref 10000' >> /opt/monroe/setup-routing.sh\"
 sh \"/bin/echo 'ip rule add dev lo table ${MARK} pref 40000' >> /opt/monroe/setup-routing.sh\"
@@ -160,8 +161,11 @@ EOF
 echo "ok."
 # Sleep a little bit to let everything settle
 sleep 5
-#echo -n "vm-start: Starting KVM with options : -nographic -m 1048 -hda ${VM_OS_DISK} ${KVMDEV}... "
 echo -n "vm-start: Starting KVM with options : -nographic -m 1048 ... "
 kvm -nographic -m 1048 -hda ${VM_OS_DISK} ${KVMDEV}  > $BASEDIR/$SCHEDID/container.log &
-echo $! > $BASEDIR/$SCHEDID.pid
+KVM_PID=$!
+#Check so kvm started correctly (in the backgound) 
+kill -0 $KVM_PID
+#Kvm has started ok so lets store the PID
+echo $KVM_PID > $BASEDIR/$SCHEDID.pid
 echo "ok."
