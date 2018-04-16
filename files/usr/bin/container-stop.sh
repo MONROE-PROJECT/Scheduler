@@ -19,6 +19,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   STARTTIME=$(echo $CONFIG | jq -r '.start // empty');
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
   EDUROAM_IDENTITY=$(echo $CONFIG | jq -r '._eduroam.identity // empty');
+  IS_VM=$(echo $CONFIG | jq -r '.vm // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -83,14 +84,15 @@ echo "ok."
 sysevent -t Scheduling.Task.Stopped -k id -v $SCHEDID
 
 if [ -d $BASEDIR/$SCHEDID ]; then
-  echo "Retrieving container logs:"
-  if [ ! -z "$CID" ]; then
-    docker logs -t $CID &> $STATUSDIR/$SCHEDID/container.log;
-  else
-    echo "CID not found for $CONTAINER." > $STATUSDIR/$SCHEDID/container.log;
+  if [ -z "$IS_VM" ]; then 
+    echo "Retrieving container logs:"
+    if [ ! -z "$CID" ]; then
+      docker logs -t $CID &> $STATUSDIR/$SCHEDID/container.log;
+    else
+      echo "CID not found for $CONTAINER." > $STATUSDIR/$SCHEDID/container.log;
+    fi
+    echo ""
   fi
-  echo ""
-
   if [ ! -z "$STARTTIME" ]; then
     echo "Retrieving dmesg events:"
     dmesg|awk '{time=0 + substr($1,2,length($1)-2); if (time > '$STARTTIME') print $0}'
