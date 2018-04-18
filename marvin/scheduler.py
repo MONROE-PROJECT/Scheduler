@@ -1531,7 +1531,7 @@ UPDATE schedule SET status = ?, shared = 1 WHERE
             canceled = c.rowcount
             c.execute("""
 UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
-    status IN ('deployed', 'requested', 'started', 'delayed', 'redeployed', 'restarted', 'running') OR status LIKE 'delayed%'
+    (status IN ('deployed', 'requested', 'started', 'delayed', 'redeployed', 'restarted', 'running') OR status LIKE 'delayed%')
                       """, ('aborted', expid))
             aborted = c.rowcount
             if exp_status is not None:
