@@ -4,7 +4,7 @@ echo "redirecting all output to the following locations:"
 echo " - /tmp/container-deploy until an experiment directory is created"
 echo " - experiment/deploy.log after that."
 
-rm /tmp/container-deploy 2>/dev/null 
+rm /tmp/container-deploy 2>/dev/null
 exec > /tmp/container-deploy 2>&1
 set -e
 
@@ -25,7 +25,7 @@ echo -n "Checking for maintenance mode... "
 MAINTENANCE=$(cat /monroe/maintenance/enabled || echo 0)
 if [ $MAINTENANCE -eq 1 ]; then
   echo "enabled."
-  exit $ERROR_MAINTENANCE_MODE; 
+  exit $ERROR_MAINTENANCE_MODE;
 fi
 echo "disabled."
 
@@ -47,7 +47,7 @@ fi
 mkdir -p $BASEDIR
 
 if [ -z "$QUOTA_DISK" ]; then
-  QUOTA_DISK=10000000; 
+  QUOTA_DISK=10000000;
 fi;
 QUOTA_DISK_KB=$(( $QUOTA_DISK / 1000 ))
 
@@ -59,8 +59,6 @@ if (( "$DISKSPACE" < $(( 100000 + $QUOTA_DISK_KB )) )); then
 fi
 echo "ok."
 
-EXISTED=$(docker images -q $CONTAINER_URL)
-
 echo -n "Checking if a deployment is ongoing... "
 DEPLOYMENT=$(ps ax|grep docker|grep pull||true)
 if [ -z "$DEPLOYMENT" ]; then
@@ -71,7 +69,7 @@ if [ -z "$DEPLOYMENT" ]; then
     iptables -w -Z OUTPUT 1
     iptables -w -I INPUT 1 -p tcp --source-port 443 -j ACCEPT
     iptables -w -Z INPUT 1
-  fi 
+  fi
 
 elif [[ "$DEPLOYMENT" == *"$CONTAINER_URL"* ]]; then
   echo -n "yes, this container is being loaded in the background"
@@ -118,8 +116,8 @@ else
 fi
 
 # these two are acceptable:
-# exit code 0   = successful wait 
-# exit code 127 = PID does not exist anymore. 
+# exit code 0   = successful wait
+# exit code 127 = PID does not exist anymore.
 
 wait $PROC_ID || {
   EXIT_CODE=$?;
@@ -129,14 +127,12 @@ wait $PROC_ID || {
   fi
 }
 
-#retag container image with scheduling id
+#retag container image with scheduling id and remove the URL tag
 docker tag $CONTAINER_URL monroe-$SCHEDID
-if [ -z "$EXISTED" ]; then
-    docker rmi $CONTAINER_URL
-fi
+docker rmi $CONTAINER_URL
 
 # check if storage quota is exceeded - should never happen
-if [ ! -z "$SUM" ]; then 
+if [ ! -z "$SUM" ]; then
   if [ "$SUM" -gt "$QUOTA_DISK" ]; then
     docker rmi monroe-$SCHEDID || true;
     echo  "quota exceeded ($SUM)."
@@ -157,7 +153,7 @@ mountpoint -q $EXPDIR || {
     mount -t ext4 -o loop,data=journal,nodelalloc,barrier=1 $EXPDIR.disk $EXPDIR;
 }
 
-# We have a VM that wants to be pre-deployed 
+# We have a VM that wants to be pre-deployed
 # Default off as the conversion might consume too much diskpace
 if [ ! -z "$VM_PRE_DEPLOY" ]; then
     /usr/bin/vm-deploy.sh $SCHEDID
