@@ -55,7 +55,6 @@ QUOTA_DISK_KB=$(( $QUOTA_DISK / 1000 ))
 echo -n "Checking for disk space... "
 DISKSPACE=$(df /var/lib/docker --output=avail|tail -n1)
 if (( "$DISKSPACE" < $(( 100000 + $QUOTA_DISK_KB )) )); then
-    logger -t container-deploy "Insufficient disk space reported: $DISKSPACE";
     exit $ERROR_INSUFFICIENT_DISK_SPACE;
 fi
 echo "ok."
@@ -63,7 +62,6 @@ echo "ok."
 echo -n "Checking for running experiments... "
 RUNNING_EXPERIMENTS=$(/usr/bin/experiments)
 if [ ! -z "$RUNNING_EXPERIMENTS" ]; then
-  logger -t "container-deploy running experiment(s) reported: $RUNNING_EXPERIMENTS"
   exit $ERROR_EXPERIMENT_IN_PROGRESS
 fi
 echo "ok."
