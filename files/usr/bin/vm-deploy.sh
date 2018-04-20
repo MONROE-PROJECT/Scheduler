@@ -13,7 +13,7 @@ mkdir -p $VM_TMP_MNT
 TMP_VM_FILE=$VM_TMP_MNT/$SCHEDID.tar_dump
 
 VM_PADDING="300" # MB neded for preparing initramfs among others. 
-VM_RAMDISK_SIZE="1024" # MB, will only use the space needed, this is the max allowed size
+VM_RAMDISK_SIZE="1524" # MB, will only use the space needed, this is the max allowed size
 
 mountpoint -q $VM_TMP_MNT || {
     echo -n "vm-deploy: Creating ${VM_RAMDISK_SIZE} Mb ramdisk in $VM_TMP_MNT... "
@@ -34,8 +34,9 @@ if [ ! -z "$IS_INTERNAL" ]; then
 fi
 mkdir -p $BASEDIR
 
-VM_OS_MNT=$BASEDIR/$SCHEDID.os
-VM_OS_DISK=${VM_OS_MNT}/image.qcow2
+VM_OS_MNT=/var/lib/docker/scratch/virtualization/
+mkdir -p ${VM_OS_MNT}
+VM_OS_DISK=${VM_OS_MNT}/image-$SCHEDID.qcow2
 
 if [[ -f "$VM_OS_DISK" ]]; then
     #logger -t "VM" "Using already converted os disk in $VM_OS_DISK"
@@ -80,16 +81,7 @@ docker rm -f $VM_CID &> /dev/null || true
 docker rmi monroe-$SCHEDID &> /dev/null || true
 echo "ok." 
 
-echo  -n "vm-deploy: Creating and mounting ${VM_OS_MNT}... "
-#More black magic
-yes|lvremove -f /dev/vg-monroe/virtualization-${SCHEDID} &> /dev/null || true
-yes|lvcreate -L${VM_PADDED_SIZE} -nvirtualization-${SCHEDID} vg-monroe
-yes|mkfs.ext4 -q /dev/vg-monroe/virtualization-${SCHEDID}
-mkdir -p ${VM_OS_MNT}
-yes|umount -f ${VM_OS_MNT} &> /dev/null || true
-yes|mount /dev/vg-monroe/virtualization-${SCHEDID} ${VM_OS_MNT}
-echo "ok."
-echo -n "vm-deploy: Creating new QCOW2 disk image... "
+echo -n "vm-deploy: Creating new QCOW2 disk image in $VM_OS_DISK... "
 virt-make-fs \
     --size=${VM_PADDED_SIZE}M \
     --format=qcow2 \

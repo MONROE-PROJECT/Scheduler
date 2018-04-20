@@ -22,8 +22,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
 fi
 
-#exec >> $BASEDIR/$SCHEDID/start.log 2>&1
-VM_OS_DISK=$BASEDIR/$SCHEDID.os/image.qcow2
+VM_OS_DISK=/var/lib/docker/scratch/virtualization/image-$SCHEDID.qcow2
 VM_CONF_DIR=$BASEDIR/$SCHEDID.confdir
 VM_RESULTS_DIR=$BASEDIR/$SCHEDID
 

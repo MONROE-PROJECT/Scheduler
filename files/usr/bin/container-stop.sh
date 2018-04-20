@@ -25,7 +25,7 @@ if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
 fi
 
-VM_OS_MNT=$BASEDIR/$SCHEDID.os
+VM_OS_DISK=/var/lib/docker/scratch/virtualization/image-$SCHEDID.qcow2
 
 exec > /tmp/cleanup.log 2>&1
 
@@ -51,35 +51,35 @@ else
   echo "Container is no longer running.";
 fi
 
-echo -n "Killing vm (if any)... "
 if [[ -f $BASEDIR/$SCHEDID.pid && -z "$RUNNING" ]]; then 
+  echo -n "Killing vm (if any)... "
   PID=$(cat $BASEDIR/$SCHEDID.pid)
   kill -9 $PID  # Should be more graceful maybe
-  sleep 30
-  #STATUS=$(ps -q $PID -o state=)
-  #if [ -z "$STATUS" ]; then
-  #  STATUS="killed"
-  #fi
-fi
-echo "ok."
-  
-echo -n "Deleting OS disk... "
-umount -f $VM_OS_MNT
-yes|lvremove -f /dev/vg-monroe/virtualization-${SCHEDID}
-echo "ok."
-
-if [[ -f $VM_TMP_FILE ]]; then 
-  echo -n "Deleting ramdisk file... "
-  rm -f $VM_TMP_FILE &> /dev/null || true 
   echo "ok."
 fi
 
-echo -n "Deleting vtap interfaces in $MNS..."
-for IFNAME in $($MNS ls /sys/class/net/|grep "${VTAPPREFIX}$SCHEDID-"); do
-  echo -n "${IFNAME}..."
-  $MNS ip link del ${IFNAME}
-done
-echo "ok."
+
+if [[ -f $VM_OS_DISK ]]; then # This file should always be here normaly
+  echo -n "Deleting OS disk... "
+  rm -f $VM_OS_DISK 
+  echo "ok."
+fi
+
+if [[ -f $VM_TMP_FILE ]]; then # This file should NOT be here normaly 
+  echo -n "Deleting ramdisk file... "
+  rm -f $VM_TMP_FILE 
+  echo "ok."
+fi
+
+VTAPS=$($MNS ls /sys/class/net/|grep "${VTAPPREFIX}$SCHEDID-")
+if [[ ! -z "$VTAPS" ]]; then 
+  echo -n "Deleting vtap interfaces in $MNS..."
+  for IFNAME in $VTAPS; do
+    echo -n "${IFNAME}..."
+    $MNS ip link del ${IFNAME}
+  done
+  echo "ok."
+fi
 
 sysevent -t Scheduling.Task.Stopped -k id -v $SCHEDID
 
