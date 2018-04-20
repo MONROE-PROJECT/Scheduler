@@ -522,7 +522,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         distinct=c.fetchall()
         tasks["distinct active users (7d)"]=[{"name":x[0], "project":x[1], "tasks":x[2]} for x in distinct] if distinct is not None else 0;
         c.execute("select status, count(*) as cnt from schedule where start > ? group by status order by cnt desc", (now - 7*24*3600,))
-        tasks["status codes (7d)"]=dict([(x[0],x[1]) for x in c.fetchall()])
+        tasks["status codes (7d)"]=[(x[1],x[0]) for x in c.fetchall()]
         activity["schedules"]=tasks
 
         return activity
@@ -1531,7 +1531,7 @@ UPDATE schedule SET status = ?, shared = 1 WHERE
             canceled = c.rowcount
             c.execute("""
 UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
-    status IN ('deployed', 'requested', 'started', 'delayed', 'redeployed', 'restarted', 'running') OR status LIKE 'delayed%'
+    (status IN ('deployed', 'requested', 'started', 'delayed', 'redeployed', 'restarted', 'running') OR status LIKE 'delayed%')
                       """, ('aborted', expid))
             aborted = c.rowcount
             if exp_status is not None:
