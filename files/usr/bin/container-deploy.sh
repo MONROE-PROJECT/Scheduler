@@ -60,10 +60,7 @@ fi
 echo "ok."
 
 echo -n "Checking for running experiments... "
-RUNNING_EXPERIMENTS=$(/usr/bin/experiments)
-if [ ! -z "$RUNNING_EXPERIMENTS" ]; then
-  exit $ERROR_EXPERIMENT_IN_PROGRESS
-fi
+/usr/bin/experiments && exit $ERROR_EXPERIMENT_IN_PROGRESS
 echo "ok."
 
 echo -n "Checking if a deployment is ongoing... "
