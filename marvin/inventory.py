@@ -26,7 +26,7 @@ def inventory_api(route, data=None):
         ).hexdigest()
     headers = {
         "Content-Type": "application/json",
-        "Client-Id": config['inventory']['id'],
+        "Client-Id": str(config['inventory']['id']),
         "Message-Timestamp": now,
         "Message-Hash": hachee,
     }
