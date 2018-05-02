@@ -81,6 +81,11 @@ if [[ ! -z "$VTAPS" ]]; then
   echo "ok."
 fi
 
+## Disable NEAT proxy ###
+rm -f /etc/circle.d/60-*-neat-proxy.rules
+circle start
+
+
 sysevent -t Scheduling.Task.Stopped -k id -v $SCHEDID
 
 if [ -d $BASEDIR/$SCHEDID ]; then
