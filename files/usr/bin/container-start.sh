@@ -109,7 +109,10 @@ fi
 
 cp /etc/resolv.conf $BASEDIR/$SCHEDID/resolv.conf.tmp
 
-### ENABLE NEAT PROXY #################################################
+### NEAT PROXY #################################################
+# Delete existing rules if any 
+rm -f /etc/circle.d/60-*-neat-proxy.rules || true
+
 ## Copied from monroe-experiments #####
 INTERFACES_BR="$(modems | jq -r .[].ifname) eth0 wlan0"
 VETH_IPRANGE=172.18
