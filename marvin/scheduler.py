@@ -560,7 +560,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
                      JOIN quota_owner_storage s ON s.ownerid = o.id
                 """
         if ssl is not None:
-            c.execute("SELECT o.* FROM owners o WHERE ssl_id = ?", (ssl,))
+            c.execute(query + " where ssl_id = ?", (ssl,))
+            #c.execute("SELECT o.* FROM owners o WHERE ssl_id = ?", (ssl,))
         elif userid is not None:
             self.check_quotas()
             c.execute(query + " where id = ?", (userid,))
