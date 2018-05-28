@@ -59,17 +59,17 @@ i=1
 KVMDEV=""
 GUESTFISHDEV=""
 NR_OF_INTERFACES="$(wc -w <<< ${INTERFACES})"
-TRUNK_SCHEDID_FROM="$((${#SCHEDID} - (MAX_LENGTH_INTERFACENAME - ${#VTAPPREFIX} - ${#NR_OF_INTERFACES} - 1)))"
-TRUNK_SCHEDID="${SCHEDID:${TRUNK_SCHEDID_FROM}:${#SCHEDID}}" 
-if [[ ${TRUNK_SCHEDID} != ${SCHEDID} ]]
- then
-  echo "vm-start: truncated $SCHEDID (schedid) to ${TRUNK_SCHEDID} to satisfiy interfacename length restrictions"
-fi
+HASHED_SCHEDID="$(echo ${SCHEDID} | md5sum)"
+MAX_LEN_IFNAME="$((MAX_LENGTH_INTERFACENAME - ${#VTAPPREFIX} - ${#NR_OF_INTERFACES} - 1))"
+TRUNKED_HASHED_SCHEDID="${HASHED_SCHEDID:0:${MAX_LEN_IFNAME}}" 
+
+NAMEPREFIX="${VTAPPREFIX}${TRUNKED_HASHED_SCHEDID}-"
+echo $NAMEPREFIX > $BASEDIR/$SCHEDID.vmifprefix
 for IFNAME in ${INTERFACES}; do
   if [[ ${IFNAME} == "lo" ]]; then
     continue
   fi
-  VTAPNAME=${VTAPPREFIX}${TRUNK_SCHEDID}-$i
+  VTAPNAME=${NAMEPREFIX}$i
 
   echo -n "${IFNAME} -> ${VTAPNAME}... "
   $MNS ip link add link ${IFNAME} name ${VTAPNAME} type macvtap mode bridge
