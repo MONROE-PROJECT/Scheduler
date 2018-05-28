@@ -1,9 +1,12 @@
 #!/bin/bash
 set -e
 
+. /etc/default/monroe-experiments
+
 SCHEDID=$1
 STATUS=$2
 CONTAINER=monroe-$SCHEDID
+NEAT_PROXY_PATH=/var/lib/docker/scratch/neat-proxy/
 
 BASEDIR=/experiments/user
 STATUSDIR=$BASEDIR
@@ -132,7 +135,26 @@ function ifnum {
 if [ ! -z "$NEAT_PROXY"  ]; then
   # If proxy is enabled, then configure TPROXY iptables rules
   # to divert TCP traffic via the proxy on all available interfaces
-  echo "TORO neat-proxy is enabled"
+  ### Start the NEAT DOCKER ######################################
+  CID_PROXY=$(docker ps --no-trunc | grep $URL_NEAT_PROXY | awk '{print $1}' | head -n 1)
+  echo "TORO: neat-proxy enabled"
+  echo -n "TORO: neat-proxy container: ${CID_PROXY}"
+
+  # Configure and start neat-proxy container if not running
+  if [ -z "$CID_PROXY" ]; then
+    ip rule del fwmark 1 lookup 100 || true
+    ip rule add fwmark 1 lookup 100 || true
+    ip route flush table 100 || true
+    ip route add local 0.0.0.0/0 dev lo table 100
+    mkdir -p $NEAT_PROXY_PATH
+    rm -f $NEAT_PROXY_PATH/* || true;
+    docker run -d --net=host \
+               -v $NEAT_PROXY_PATH:/monroe/results \
+               $URL_NEAT_PROXY || true;
+    echo "is started"
+    logger -t monroe-experiments "started neat-proxy container.";
+  fi
+  
   for IF in $INTERFACES_BR; do
     if [ -z "$(ip link|grep ${IF}Br:)" ]; then
       # Firewall rules to set up TPROXY
