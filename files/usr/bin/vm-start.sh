@@ -6,7 +6,8 @@ OVERRIDE_STARTUP=$2
 
 # Hardcoded
 MNS="ip netns exec monroe"
-VTAPPREFIX=mvtap-
+VTAPPREFIX="mvtap-"
+MAX_LENGTH_INTERFACENAME="15"    # Based on https://bit.ly/2IUw2ZF
 
 BASEDIR=/experiments/user
 STATUSDIR=$BASEDIR
@@ -57,11 +58,18 @@ echo -n "vm-start: Enumerating the Interfaces: "
 i=1
 KVMDEV=""
 GUESTFISHDEV=""
+NR_OF_INTERFACES="$(wc -w <<< ${INTERFACES})"
+TRUNK_SCHEDID_FROM="$((${#SCHEDID} - (MAX_LENGTH_INTERFACENAME - ${#VTAPPREFIX} - ${#NR_OF_INTERFACES} - 1)))"
+TRUNK_SCHEDID="${SCHEDID:${TRUNK_SCHEDID_FROM}:${#SCHEDID}}" 
+if [[ ${TRUNK_SCHEDID} != ${SCHEDID} ]]
+ then
+  echo "vm-start: truncated $SCHEDID (schedid) to ${TRUNK_SCHEDID} to satisfiy interfacename length restrictions"
+fi
 for IFNAME in ${INTERFACES}; do
   if [[ ${IFNAME} == "lo" ]]; then
     continue
   fi
-  VTAPNAME=${VTAPPREFIX}$SCHEDID-$i
+  VTAPNAME=${VTAPPREFIX}${TRUNK_SCHEDID}-$i
 
   echo -n "${IFNAME} -> ${VTAPNAME}... "
   $MNS ip link add link ${IFNAME} name ${VTAPNAME} type macvtap mode bridge
