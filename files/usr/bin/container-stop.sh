@@ -103,9 +103,9 @@ if [ -d $BASEDIR/$SCHEDID ]; then
   monroe-user-experiments;
   TRAFFIC=$(cat $STATUSDIR/$SCHEDID.traffic)
 
-  for i in $(ls $USAGEDIR/monroe-$SCHEDID/*.rx.total|sort); do
+  for i in $(ls $USAGEDIR/$SCHEDID/*.rx.total|sort); do
     MACICCID=$(basename $i | sed -e 's/\..*//g')
-    TRAFFIC=$(echo "$TRAFFIC" | jq ".interfaces.\"$MACICCID\"=$(cat $USAGEDIR/monroe-$SCHEDID/$MACICCID.total)")
+    TRAFFIC=$(echo "$TRAFFIC" | jq ".interfaces.\"$MACICCID\"=$(cat $USAGEDIR/$SCHEDID/$MACICCID.total)")
   done;
   if [ ! -z "$TRAFFIC" ]; then
     echo "$TRAFFIC" > $STATUSDIR/$SCHEDID.traffic
