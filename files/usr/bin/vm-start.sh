@@ -63,14 +63,13 @@ HASHED_SCHEDID="$(echo ${SCHEDID} | md5sum)"
 MAX_LEN_IFNAME="$((MAX_LENGTH_INTERFACENAME - ${#VTAPPREFIX} - ${#NR_OF_INTERFACES} - 1))"
 TRUNKED_HASHED_SCHEDID="${HASHED_SCHEDID:0:${MAX_LEN_IFNAME}}" 
 
-NAMEPREFIX="${VTAPPREFIX}${TRUNKED_HASHED_SCHEDID}-"
-echo $NAMEPREFIX > $BASEDIR/$SCHEDID.vmifprefix
+echo $TRUNKED_HASHED_SCHEDID > $BASEDIR/$SCHEDID.vmifhash
 for IFNAME in ${INTERFACES}; do
   if [[ ${IFNAME} == "lo" ]]; then
     continue
   fi
-  VTAPNAME=${NAMEPREFIX}$i
-
+  VTAPNAME=${VTAPPREFIX}${TRUNKED_HASHED_SCHEDID}-$i
+  
   echo -n "${IFNAME} -> ${VTAPNAME}... "
   $MNS ip link add link ${IFNAME} name ${VTAPNAME} type macvtap mode bridge
   #sleep 2
