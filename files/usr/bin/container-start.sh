@@ -150,6 +150,7 @@ if [ ! -z "$NEAT_PROXY"  ]; then
     rm -f $NEAT_PROXY_PATH/* || true;
     docker run -d --net=host \
                -v $NEAT_PROXY_PATH:/monroe/results \
+	        --name monroe-neat-proxy \
                $URL_NEAT_PROXY || true;
     echo "is started"
     logger -t monroe-experiments "started neat-proxy container.";
