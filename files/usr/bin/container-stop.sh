@@ -71,14 +71,17 @@ if [[ -f $VM_TMP_FILE ]]; then # This file should NOT be here normaly
   echo "ok."
 fi
 
-VTAPS=$($MNS ls /sys/class/net/|grep "${VTAPPREFIX}$SCHEDID-")
-if [[ ! -z "$VTAPS" ]]; then 
-  echo -n "Deleting vtap interfaces in $MNS..."
-  for IFNAME in $VTAPS; do
-    echo -n "${IFNAME}..."
-    $MNS ip link del ${IFNAME}
-  done
-  echo "ok."
+VMIFHASH="$(cat $BASEDIR/$SCHEDID.vmifhash) 2>/dev/null"
+if [[ ! -z "$VMIFHASH" ]]; then
+  VTAPS=$($MNS ls /sys/class/net/|grep "${VTAPPREFIX}${VMIFPREFIX}-")
+  if [[ ! -z "$VTAPS" ]]; then 
+    echo -n "Deleting vtap interfaces in $MNS..."
+    for IFNAME in $VTAPS; do
+      echo -n "${IFNAME}..."
+      $MNS ip link del ${IFNAME}
+    done
+    echo "ok."
+  fi
 fi
 
 sysevent -t Scheduling.Task.Stopped -k id -v $SCHEDID
