@@ -115,7 +115,7 @@ cp /etc/resolv.conf $BASEDIR/$SCHEDID/resolv.conf.tmp
 ### NEAT PROXY #################################################
 # Delete existing rules if any 
 rm -f /etc/circle.d/60-*-neat-proxy.rules || true
-## Stop the neta proxy container if any 
+## Stop the neat proxy container if any 
 docker stop --time=10 monroe-neat-proxy 2>/dev/null || true
 
 ## Copied from monroe-experiments #####
@@ -137,7 +137,7 @@ function ifnum {
 if [ ! -z "$NEAT_PROXY"  ]; then
   # If proxy is enabled, then configure TPROXY iptables rules
   # to divert TCP traffic via the proxy on all available interfaces
-  ### Start the NEAT DOCKER ######################################
+  ### Start the NEAT DOCKER proxy ######################################
   CID_PROXY=$(docker ps --no-trunc | grep $URL_NEAT_PROXY | awk '{print $1}' | head -n 1)
   echo " TORO: neat-proxy enabled ... "
   echo -n "TORO: neat-proxy container: ${CID_PROXY}"
