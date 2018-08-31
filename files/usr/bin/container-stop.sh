@@ -164,9 +164,12 @@ echo -n "Cleaning files... "
 
 umount $BASEDIR/$SCHEDID
 rmdir  $BASEDIR/$SCHEDID
+# .traffic and .status should be kept (are deleted by external scripts after read)
 mv     $STATUSDIR/${SCHEDID}.traffic  $STATUSDIR/${SCHEDID}-traffic
+mv     $STATUSDIR/${SCHEDID}.status  $STATUSDIR/${SCHEDID}-status
 rm -rf $BASEDIR/${SCHEDID}.*
 mv     $STATUSDIR/${SCHEDID}-traffic  $STATUSDIR/${SCHEDID}.traffic_
+mv     $STATUSDIR/${SCHEDID}-status  $STATUSDIR/${SCHEDID}.status
 rm -r  $USAGEDIR/monroe-${SCHEDID}
 echo "ok."
 
