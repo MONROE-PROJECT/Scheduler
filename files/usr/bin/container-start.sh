@@ -77,6 +77,17 @@ if [ ! -z "$EDUROAM_IDENTITY" ]; then
     /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH & 
 fi
 
+# Reset pycom devices 
+PYCOM_DIR="/dev/pycom"
+MOUNT_PYCOM=""
+if [ -d "$PYCOM_DIR" ]; then
+    MOUNT_PYCOM="-v $PYCOM_DIR:$PYCOM_DIR"
+    for board in $(ls $PYCOM_DIR); do
+        #TODO: add a ykush start stop of the port
+        /usr/bin/factory-reset-pycom.py --device $PYCOM_DIR/$board --wait 5 --baudrate 115200
+    done
+fi
+
 ### START THE CONTAINER ###############################################
 
 echo -n "Starting container... "
@@ -142,6 +153,7 @@ else
            -v $BASEDIR/$SCHEDID.conf:/monroe/config:ro \
            -v /etc/nodeid:/nodeid:ro \
            -v /tmp/dnsmasq-servers-netns-monroe.conf:/dns:ro \
+           $MOUNT_PYCOM \
            $MOUNT_DISK \
            $TSTAT_DISK \
            $CONTAINER $OVERRIDE_PARAMETERS)

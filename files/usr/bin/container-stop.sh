@@ -84,6 +84,15 @@ if [[ ! -z "$VMIFHASH" ]]; then
   fi
 fi
 
+# Reset pycom devices 
+PYCOM_DIR="/dev/pycom"
+if [ -d "$PYCOM_DIR" ]; then
+    for board in $(ls $PYCOM_DIR); do
+        #TODO: add a ykush start stop of the port
+        /usr/bin/factory-reset-pycom.py --device $PYCOM_DIR/$board --wait 5 --baudrate 115200
+    done
+fi
+
 sysevent -t Scheduling.Task.Stopped -k id -v $SCHEDID
 
 if [ -d $BASEDIR/$SCHEDID ]; then
