@@ -77,14 +77,23 @@ if [ ! -z "$EDUROAM_IDENTITY" ]; then
     /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH & 
 fi
 
+if [ -f "/usr/bin/ykushcmd" ];then 
+    # Power up all yepkit ports (assume pycom is only used for yepkit)"
+    # TODO: detect if yepkit is there and optionally which port a pycom device is attached to
+    echo "Power up all ports of the yepkit"
+    for port in 1 2 3; do
+        /usr/bin/ykushcmd -u $port || echo "Could not power up yepkit port : $port"
+    done
+fi
+
 # Reset pycom devices 
 PYCOM_DIR="/dev/pycom"
 MOUNT_PYCOM=""
 if [ -d "$PYCOM_DIR" ]; then
+    echo "Trying to factory reset the board(s) (timeout 30 seconds)"
     MOUNT_PYCOM="-v $PYCOM_DIR:$PYCOM_DIR"
     for board in $(ls $PYCOM_DIR); do
-        #TODO: add a ykush start stop of the port
-        /usr/bin/factory-reset-pycom.py --device $PYCOM_DIR/$board --wait 5 --baudrate 115200
+        /usr/bin/factory-reset-pycom.py --device $PYCOM_DIR/$board --wait 30 --baudrate 115200
     done
 fi
 

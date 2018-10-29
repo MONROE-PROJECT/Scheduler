@@ -84,13 +84,14 @@ if [[ ! -z "$VMIFHASH" ]]; then
   fi
 fi
 
-# Reset pycom devices 
-PYCOM_DIR="/dev/pycom"
-if [ -d "$PYCOM_DIR" ]; then
-    for board in $(ls $PYCOM_DIR); do
-        #TODO: add a ykush start stop of the port
-        /usr/bin/factory-reset-pycom.py --device $PYCOM_DIR/$board --wait 5 --baudrate 115200
+if [ -f "/usr/bin/ykushcmd" ];then
+  # Power off yepkit (assume we use yepkit only for pycom)
+  PYCOM_DIR="/dev/pycom"
+  if [ -d "$PYCOM_DIR" ]; then
+    for port in 1 2 3; do
+        /usr/bin/ykushcmd -d $port || echo "Could not down yepkit port : $port"
     done
+  fi
 fi
 
 sysevent -t Scheduling.Task.Stopped -k id -v $SCHEDID
