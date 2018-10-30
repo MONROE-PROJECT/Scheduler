@@ -29,7 +29,21 @@ args = cmd_parser.parse_args()
 pyb = pyboard.Pyboard(device=args.device, baudrate=args.baudrate, wait=args.wait)
 print("Connected to board {}, executing reset... ".format(args.device), end='')
 pyb.enter_raw_repl()
-pyb.exec_raw_no_follow("import os,machine; os.mkfs('/flash'); machine.reset()")
+pyb.exec_raw_no_follow(""" 
+import os,machine
+if (os.listdir() == ['main.py', 'sys', 'lib', 'cert', 'boot.py'] and
+    os.listdir('sys') == [] and
+    os.listdir('lib') == [] and
+    os.listdir('cert') == [] and
+    open('boot.py').read() == '# boot.py -- run on boot-up\\r\\n' and 
+    open('main.py').read() == '# main.py -- put your code here!\\r\\n'):
+        print("Flash is already clean")
+else:
+        print("Cleaning flash")
+        os.mkfs('/flash')
+print("Restarting board")
+machine.reset()
+""")
 pyb.exit_raw_repl()
 pyb.close()
 print("Done")
