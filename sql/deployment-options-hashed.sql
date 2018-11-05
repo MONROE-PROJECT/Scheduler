@@ -1,3 +1,5 @@
+PRAGMA wal_checkpoint(TRUNCATE);
+
 CREATE TABLE IF NOT EXISTS deployment_options (id INTEGER PRIMARY KEY ASC, json TEXT UNIQUE);
 
 CREATE TABLE IF NOT EXISTS schedule_new (id TEXT PRIMARY KEY ASC,
@@ -18,3 +20,5 @@ ALTER TABLE schedule_new RENAME TO schedule;
 VACUUM;
 
 ANALYZE;
+
+PRAGMA wal_checkpoint(TRUNCATE);
