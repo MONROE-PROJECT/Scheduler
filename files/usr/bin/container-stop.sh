@@ -20,6 +20,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   BDEXT=$(echo $CONFIG | jq -r '.basedir // empty');
   EDUROAM_IDENTITY=$(echo $CONFIG | jq -r '._eduroam.identity // empty');
   IS_VM=$(echo $CONFIG | jq -r '.vm // empty');
+  NEAT_PROXY=$(echo $CONFIG | jq -r '.neat // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -82,6 +83,14 @@ if [[ ! -z "$VMIFHASH" ]]; then
     done
     echo "ok."
   fi
+fi
+
+## Disable NEAT proxy ###
+if [[ ! -z "$NEAT_PROXY" ]]; then # If this is a experiment using the neat-proxy
+  rm -f /etc/circle.d/60-*-neat-proxy.rules
+  circle start
+  ## Stop the neta proxy container 
+  docker stop --time=10 monroe-neat-proxy
 fi
 
 sysevent -t Scheduling.Task.Stopped -k id -v $SCHEDID

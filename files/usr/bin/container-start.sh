@@ -1,9 +1,12 @@
 #!/bin/bash
 set -e
 
+. /etc/default/monroe-experiments
+
 SCHEDID=$1
 STATUS=$2
 CONTAINER=monroe-$SCHEDID
+NEAT_PROXY_PATH=/var/lib/docker/scratch/neat-proxy/
 
 BASEDIR=/experiments/user
 STATUSDIR=$BASEDIR
@@ -17,6 +20,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   EDUROAM_IDENTITY=$(echo $CONFIG | jq -r '._eduroam.identity // empty');
   EDUROAM_HASH=$(echo $CONFIG | jq -r '._eduroam.hash // empty');
   IS_VM=$(echo $CONFIG | jq -r '.vm // empty');
+  NEAT_PROXY=$(echo $CONFIG | jq -r '.neat // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -108,6 +112,69 @@ fi
 
 cp /etc/resolv.conf $BASEDIR/$SCHEDID/resolv.conf.tmp
 
+### NEAT PROXY #################################################
+# Delete existing rules if any 
+rm -f /etc/circle.d/60-*-neat-proxy.rules || true
+## Stop the neat proxy container if any 
+docker stop --time=10 monroe-neat-proxy 2>/dev/null || true
+
+## Copied from monroe-experiments #####
+INTERFACES_BR="$(modems | jq -r .[].ifname) eth0 wlan0"
+VETH_IPRANGE=172.18
+function ifnum {
+  # generate a unique static IP for each interface name
+  # $1 - interface name (e.g wwan0)
+  echo -n "$VETH_IPRANGE."
+  echo $1 | sed -e 's/\([^0-9]\+\)\([0-9]\+\)/\2-\1/g' \
+    -e 's/-wwan/1/g' \
+    -e 's/-ppp/2/g' \
+    -e 's/-eth/3/g' \
+    -e 's/-usb/4/g' \
+    -e 's/-wlan/5/g' \
+    -e 's/^0*//g'
+}
+
+if [ ! -z "$NEAT_PROXY"  ]; then
+  # If proxy is enabled, then configure TPROXY iptables rules
+  # to divert TCP traffic via the proxy on all available interfaces
+  ### Start the NEAT DOCKER proxy ######################################
+  CID_PROXY=$(docker ps --no-trunc | grep $URL_NEAT_PROXY | awk '{print $1}' | head -n 1)
+  echo " TORO: neat-proxy enabled ... "
+  echo -n "TORO: neat-proxy container: ${CID_PROXY}"
+
+  # Configure and start neat-proxy container if not running
+  if [ -z "$CID_PROXY" ]; then
+    ip rule del fwmark 1 lookup 100 || true
+    ip rule add fwmark 1 lookup 100 || true
+    ip route flush table 100 || true
+    ip route add local 0.0.0.0/0 dev lo table 100
+    mkdir -p $NEAT_PROXY_PATH
+    rm -f $NEAT_PROXY_PATH/* || true;
+    docker run -d --net=host \
+               -v $NEAT_PROXY_PATH:/monroe/results \
+	        --name monroe-neat-proxy \
+               $URL_NEAT_PROXY || true;
+    echo "is started"
+    logger -t monroe-experiments "started neat-proxy container.";
+  fi
+  
+  for IF in $INTERFACES_BR; do
+    if [ -z "$(ip link|grep ${IF}Br:)" ]; then
+      # Firewall rules to set up TPROXY
+      TARGET="/etc/circle.d/60-$IF-neat-proxy.rules"
+      if [ ! -f ${TARGET} ]; then
+        IPRANGE=$(ifnum $IF)
+	RULES="\
+\${ipt4} -A INPUT -p tcp -s ${IPRANGE}.0/24 -j ACCEPT
+\${ipt4} -t mangle -A PREROUTING -p tcp -i ${IF}Br -j TPROXY --tproxy-mark 0x1/0x1 --on-port 9876"
+        echo "$RULES" > $TARGET
+        echo "enabled neat-proxy on ${IF}"
+        logger -t monroe-experiments "enabled neat-proxy on ${IF}"
+      fi
+    fi
+   done
+fi
+
 # drop all network traffic for 30 seconds (idle period)
 nohup /bin/bash -c 'sleep 35; circle start' > /dev/null &
 iptables -F
@@ -116,6 +183,9 @@ iptables -P OUTPUT DROP
 iptables -P FORWARD DROP
 sleep 30
 circle start
+
+##########################################################################
+
 if [ ! -z "$IS_VM" ]; then
     echo "Container is a vm, trying to deploy... "
     /usr/bin/vm-deploy.sh $SCHEDID
