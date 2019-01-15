@@ -126,7 +126,7 @@ function ifnum {
   # $1 - interface name (e.g wwan0)
   echo -n "$VETH_IPRANGE."
   echo $1 | sed -e 's/\([^0-9]\+\)\([0-9]\+\)/\2-\1/g' \
-    -e 's/-wwan/1/g' \
+    -e 's/-nlw_/1/g' \
     -e 's/-ppp/2/g' \
     -e 's/-eth/3/g' \
     -e 's/-usb/4/g' \
