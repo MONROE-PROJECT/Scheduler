@@ -6,11 +6,11 @@ set -e
 SCHEDID=$1
 STATUS=$2
 CONTAINER=monroe-$SCHEDID
-NEAT_PROXY_PATH=/var/lib/docker/scratch/neat-proxy/
 
 BASEDIR=/experiments/user
 STATUSDIR=$BASEDIR
 mkdir -p $BASEDIR
+NEAT_PROXY_PATH=$BASEDIR/$SCHEDID/neat-proxy/
 
 if [ -f $BASEDIR/$SCHEDID.conf ]; then
   CONFIG=$(cat $BASEDIR/$SCHEDID.conf);
@@ -126,7 +126,7 @@ function ifnum {
   # $1 - interface name (e.g wwan0)
   echo -n "$VETH_IPRANGE."
   echo $1 | sed -e 's/\([^0-9]\+\)\([0-9]\+\)/\2-\1/g' \
-    -e 's/-wwan/1/g' \
+    -e 's/-nlw_/1/g' \
     -e 's/-ppp/2/g' \
     -e 's/-eth/3/g' \
     -e 's/-usb/4/g' \
@@ -149,9 +149,10 @@ if [ ! -z "$NEAT_PROXY"  ]; then
     ip route flush table 100 || true
     ip route add local 0.0.0.0/0 dev lo table 100
     mkdir -p $NEAT_PROXY_PATH
-    rm -f $NEAT_PROXY_PATH/* || true;
+    mkdir -p /var/run/neat/
     docker run -d --net=host \
                -v $NEAT_PROXY_PATH:/monroe/results \
+	       -v /var/run/neat:/var/run/neat \
 	        --name monroe-neat-proxy \
                $URL_NEAT_PROXY || true;
     echo "is started"
@@ -165,6 +166,9 @@ if [ ! -z "$NEAT_PROXY"  ]; then
       if [ ! -f ${TARGET} ]; then
         IPRANGE=$(ifnum $IF)
 	RULES="\
+\${ipt4} -A INPUT -p tcp -s ${IPRANGE}.0/24 -d localhost -j DROP
+\${ipt4} -A INPUT -p tcp -s ${IPRANGE}.0/24 -d 172.16.253.1/24 -j DROP
+\${ipt4} -A INPUT -p tcp -s ${IPRANGE}.0/24 -d 172.16.254.1/24 -j DROP
 \${ipt4} -A INPUT -p tcp -s ${IPRANGE}.0/24 -j ACCEPT
 \${ipt4} -t mangle -A PREROUTING -p tcp -i ${IF}Br -j TPROXY --tproxy-mark 0x1/0x1 --on-port 9876"
         echo "$RULES" > $TARGET
