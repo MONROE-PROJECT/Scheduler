@@ -3,6 +3,7 @@
 import configuration
 import datetime
 from inventory import inventory_api
+from n2inventory import n2_inventory_api
 from itertools import chain
 import logging
 from logging.handlers import WatchedFileHandler
