@@ -134,60 +134,66 @@ class Scheduler:
 
         last_sync = int(time.time())
         try:
-            nodes = inventory_api("nodes/status")
+            # FIXME: group id should become obsolete once permissions are fixed
+            # nodes1 = inventory_api("nodes/status")
+            nodes = n2_inventory_api("routers?limit=99999&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
             if not nodes:
                 log.warning("No nodes returned from inventory.")
                 return
-        except:
+        except Exception,e:
+            print e
             log.warning("Inventory synchronization failed.")
             return
 
         c = self.db().cursor()
-
         c.execute("UPDATE nodes SET status = ?", (NODE_MISSING,))
+
         for node in nodes:
             # update if exists
             log.debug(node)
-            status = NODE_ACTIVE if node["Status"] == u'DEPLOYED' \
-                or node["Status"] == u'TESTING' \
-                else NODE_DISABLED
-            if node.get("ProjectName") in ["Celerway", "Monroe"]:
-                status = NODE_DISABLED
+
+            tags = [x['tagName'] for x in node["allTags"]]
+            status = NODE_DISABLED
+            if u'production' in tags or u'testing' in tags:
+                status = NODE_ACTIVE
+
             c.execute(
                 "UPDATE nodes SET hostname = ?, status = ? WHERE id = ?",
-                (node.get("Hostname"),
+                (node.get("hostname"),
                  status,
-                 node["NodeId"]))
+                 node["routerId"]))
             c.execute(
                 "INSERT OR IGNORE INTO nodes VALUES (?, ?, ?, ?)",
-                (node["NodeId"],
-                 node.get("Hostname"),
+                (node["routerId"],
+                 node.get("hostname"),
                     status,
                     0))
             types = []
 
-            for key, tag in [('Country', 'country'),
-                             ('Model', 'model'),
-                             ('ProjectName', 'project'),
-                             ('Latitude', 'latitude'),
-                             ('Longitude', 'longitude'),
-                             ('ProjectName', 'site'),
-                             ('Status', 'type')]:
+            for key, tag in [('countryName', 'country'),
+                             #('???', 'model'),
+                             #('ProjectName', 'project'),
+                             #('ProjectName', 'site'),
+                             #('Status', 'type')],
+                             ('AddressGpsLatitude', 'latitude'),
+                             ('AddressGpsLongitude', 'longitude')]:
                 value = node.get(key)
                 if value is not None:
                     types.append((tag, value.lower().strip()))
-            if node.get('Country'):
-                address = "%s - %s %s" % (node.get('Address','').strip(), node.get('Country',''), node.get('PostCode','').strip())
+            if node.get('countryName'):
+                address = "%s - %s %s" % (node.get('streetName','').strip(), node.get('countryName',''), node.get('zipCode','').strip())
                 types.append(('address', address))
 
             c.execute("DELETE FROM node_type WHERE nodeid = ? AND volatile = 1",
-                      (node["NodeId"],))
+                      (node["routerId"],))
             for tag, type_ in types:
                 c.execute(
                     "INSERT OR IGNORE INTO node_type VALUES (?, ?, ?, ?)",
-                    (node["NodeId"], tag, type_, 1))
+                    (node["routerId"], tag, type_, 1))
+        self.db().commit()
 
-        devices = inventory_api("nodes/devices")
+        #devices1 = inventory_api("nodes/devices")
+        devices = n2_inventory_api("networkinterfaces?limit=9999&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
         if not devices:
             log.error("No devices returned from inventory.")
             sys.exit(1)

@@ -31,7 +31,7 @@ def n2_inventory_api(route, data=None, method='GET'):
 
     r = None
     if (method=='GET'):
-      r = requests.get('https://' + config['inventory']['url'] + route,
+      r = requests.get('https://' + config['inventory']['url'] + '/' + route,
                        headers={'Authorization': 'Bearer '+token}, json=data)
 
     try:
