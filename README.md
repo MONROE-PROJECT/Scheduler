@@ -20,7 +20,6 @@ When started
   * synchronizes with an inventory REST API to retrieve node status.
   * opens the following control ports:
     * REST API
-    * GENI v3 AM API
 
 All state changes are stored in a SQLite database on disk, and will be
 recovered on restart.
@@ -287,53 +286,4 @@ Parameters:
   * 404 Not Found   - The request path is unknown.
   * 409 Conflict    - Resource reservation failed + Reason.
 
-### GENIv3 AM API
-
-This API provides aggregate management according to the GENI v3 AM specifications.
-It may have to be modified to conform to Fed4Fire specifications, but that will
-require a working client to test against.
-
-It provides the following methods:
-
-  * GetVersion()
-  * ListResources(credentials, options)
-  * Allocate(slice_urn, credentials, rspecxml, options)
-
-The following methods defined by the API are supported, but ignored:
-
-  * Provision(urns, credentials, options)
-  * PerformOperationalAction(urns, credentials, action, options)
-  * Status(urns, credentials, options)
-  * Describe(urns, credentials, options)
-  * Renew(urns, credentials, stop_time, options)
-  * Delete(urns, credentials, options)
-  * Shutdown(urns, credentials, options)
-
-# RSpec
-
-In order to perform a reservation on MONROE nodes, the following RSpec parameters
-and options are observed and required:
-
-Required in RSpec:
-
-  * type="request"
-  * <services><install urn="...">
-
-And either a list of
-
-  * <node client_id="...">
-
-Or a node count and type (TODO)
-
-Required as Allocate ExtraOptions:
-
-  * start_time
-  * stop_time
-
-# Example
-
-    <rspec type="request" xsi:schemaLocation="http://www.geni.net/resources/rspec/3 http://www.geni.net/resources/rspec/3/request.xsd " xmlns:client="http://www.protogeni.net/resources/rspec/ext/client/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.geni.net/resources/rspec/3">
-      <services><install urn="http://..."/></services>
-      <node client_id="PC" component_manager_id="urn:publicid:IDN+foo+authority+cm" exclusive="true"> </node>
-    </rspec>
 
