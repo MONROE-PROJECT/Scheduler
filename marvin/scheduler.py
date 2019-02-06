@@ -1253,7 +1253,7 @@ SELECT DISTINCT * FROM (
             preselection = opts.get("nodes").split(",")
 
         if opts.get('internal') is not None and \
-          u.get('ssl_id') != "c0004c4c44b2adc8a63d0b5ca62a7acd973198ba":
+          u.get('ssl_id') != "9c9217b34aa3ab247ee5f95790dfdb59bf86051b":
             return None, "option internal not allowed", {}
 
         ssh = 'ssh' in opts
