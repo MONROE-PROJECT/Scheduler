@@ -135,8 +135,7 @@ class Scheduler:
         last_sync = int(time.time())
         try:
             # FIXME: group id should become obsolete once permissions are fixed
-            # nodes1 = inventory_api("nodes/status")
-            nodes = n2_inventory_api("routers?limit=99999&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
+            nodes = n2_inventory_api("routers?limit=99999&includeDetails=true&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
             if not nodes:
                 log.warning("No nodes returned from inventory.")
                 return
@@ -157,6 +156,7 @@ class Scheduler:
             if u'production' in tags or u'testing' in tags:
                 status = NODE_ACTIVE
 
+            types = []
             c.execute(
                 "UPDATE nodes SET hostname = ?, status = ? WHERE id = ?",
                 (node.get("hostname"),
@@ -168,21 +168,21 @@ class Scheduler:
                  node.get("hostname"),
                     status,
                     0))
-            types = []
 
             for key, tag in [('countryName', 'country'),
-                             #('???', 'model'),
+                             ('model', 'model'),
                              #('ProjectName', 'project'),
                              #('ProjectName', 'site'),
-                             #('Status', 'type')],
                              ('AddressGpsLatitude', 'latitude'),
                              ('AddressGpsLongitude', 'longitude')]:
                 value = node.get(key)
                 if value is not None:
                     types.append((tag, value.lower().strip()))
+
             if node.get('countryName'):
                 address = "%s - %s %s" % (node.get('streetName','').strip(), node.get('countryName',''), node.get('zipCode','').strip())
                 types.append(('address', address))
+            types.append(('type',status))
 
             c.execute("DELETE FROM node_type WHERE nodeid = ? AND volatile = 1",
                       (node["routerId"],))
@@ -192,9 +192,9 @@ class Scheduler:
                     (node["routerId"], tag, type_, 1))
         self.db().commit()
 
-        #devices1 = inventory_api("nodes/devices")
+        devices1 = inventory_api("nodes/devices")
         devices = n2_inventory_api("networkinterfaces?limit=9999&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
-        if not devices:
+        if not devices and not devices1:
             log.error("No devices returned from inventory.")
             sys.exit(1)
 
