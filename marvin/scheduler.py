@@ -147,6 +147,8 @@ class Scheduler:
         c = self.db().cursor()
         c.execute("UPDATE nodes SET status = ?", (NODE_MISSING,))
 
+        print nodes
+
         for node in nodes:
             # update if exists
             log.debug(node)
@@ -171,8 +173,8 @@ class Scheduler:
 
             for key, tag in [('countryName', 'country'),
                              ('model', 'model'),
-                             #('ProjectName', 'project'),
-                             #('ProjectName', 'site'),
+                             ('groupName', 'project'),
+                             ('groupName', 'site'),
                              ('AddressGpsLatitude', 'latitude'),
                              ('AddressGpsLongitude', 'longitude')]:
                 value = node.get(key)
