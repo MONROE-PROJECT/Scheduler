@@ -193,13 +193,16 @@ class Scheduler:
         self.db().commit()
 
         devices1 = inventory_api("nodes/devices")
-        devices = n2_inventory_api("networkinterfaces?limit=9999&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
+        devices = n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
+        
         if not devices and not devices1:
             log.error("No devices returned from inventory.")
             sys.exit(1)
 
         c.execute("UPDATE node_interface SET status = ?", (DEVICE_HISTORIC,))
-        for device in devices:
+
+        #TODO: this insert will be obsolete once all devices are registered in nimbus2.
+        for device in devices1:
             if not device.get('Iccid'):
                 continue
             if not device.get('MccMnc'):
@@ -218,6 +221,29 @@ class Scheduler:
                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                           (device.get('NodeId'), device.get('DeviceId'),
                            device.get('MccMnc'), device.get('Operator'),
+                           device.get('Iccid'),
+                           0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
+
+
+        for device in devices:
+            if not device.get('iccid'):
+                continue
+            if not device.get('mcc'):
+                continue
+
+            c.execute("SELECT * from node_interface "
+                      "WHERE imei = ? AND iccid = ? AND nodeid = ?",
+                      (device.get('imei'), device.get('iccid'), device.get('routerId')))
+            result = c.fetchall()
+            if len(result)>0:
+                c.execute("UPDATE node_interface SET status = ? "
+                          "WHERE imei = ? AND iccid = ? AND nodeid = ?",
+                          (DEVICE_CURRENT, device.get('imei'), device.get('iccid'), device.get('routerId')))
+            else:
+                c.execute("INSERT INTO node_interface "
+                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                          (device.get('routerId'), device.get('imei'),
+                           device.get('mcc')+device.get('mnc'), device.get('operator'),
                            device.get('Iccid'),
                            0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
 
