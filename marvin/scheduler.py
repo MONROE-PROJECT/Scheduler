@@ -209,18 +209,20 @@ class Scheduler:
             if not device.get('MccMnc'):
                 continue
 
+            n2id=str(int(device.get('NodeId'))+int(config.get('inventory',{}).get('n1_id_offset')))
+
             c.execute("SELECT * from node_interface "
                       "WHERE imei = ? AND iccid = ? AND nodeid = ?",
-                      (device.get('DeviceId'), device.get('Iccid'), device.get('NodeId')))
+                      (device.get('DeviceId'), device.get('Iccid'), n2id ))
             result = c.fetchall()
             if len(result)>0:
                 c.execute("UPDATE node_interface SET status = ? "
                           "WHERE imei = ? AND iccid = ? AND nodeid = ?",
-                          (DEVICE_CURRENT, device.get('DeviceId'), device.get('Iccid'), device.get('NodeId')))
+                          (DEVICE_CURRENT, device.get('DeviceId'), device.get('Iccid'), n2id ))
             else:
                 c.execute("INSERT INTO node_interface "
                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                          (device.get('NodeId'), device.get('DeviceId'),
+                          (n2id, device.get('DeviceId'),
                            device.get('MccMnc'), device.get('Operator'),
                            device.get('Iccid'),
                            0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
