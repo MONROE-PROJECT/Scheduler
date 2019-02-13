@@ -139,6 +139,9 @@ class Scheduler:
             if not nodes:
                 log.warning("No nodes returned from inventory.")
                 return
+            if type(nodes)=='dict' and nodes['statusCode']==401:
+                log.warning("Inventory authentication failed.")
+                return
         except Exception,e:
             print e
             log.warning("Inventory synchronization failed.")
@@ -147,12 +150,8 @@ class Scheduler:
         c = self.db().cursor()
         c.execute("UPDATE nodes SET status = ?", (NODE_MISSING,))
 
-        print nodes
-
         for node in nodes:
             # update if exists
-            log.debug(node)
-
             tags = [x['tagName'] for x in node["allTags"]]
             status = NODE_DISABLED
             if u'production' in tags or u'testing' in tags:
@@ -196,8 +195,8 @@ class Scheduler:
 
         devices1 = inventory_api("nodes/devices")
         devices = n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
-        
-        if not devices and not devices1:
+
+        if not devices  and not devices1:
             log.error("No devices returned from inventory.")
             sys.exit(1)
 
