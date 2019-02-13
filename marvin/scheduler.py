@@ -194,7 +194,10 @@ class Scheduler:
         self.db().commit()
 
         devices1 = inventory_api("nodes/devices")
-        devices = n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
+
+        devices = []
+        for groupId in str(config.get('inventory',{}).get('group_ids','')).split(","):
+          devices.extend(n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupId="+groupId))
 
         if not devices  and not devices1:
             log.error("No devices returned from inventory.")
@@ -229,25 +232,25 @@ class Scheduler:
 
 
         for device in devices:
-            if not device.get('iccid'):
+            if not device.get('iccId'):
                 continue
             if not device.get('mcc'):
                 continue
 
             c.execute("SELECT * from node_interface "
                       "WHERE imei = ? AND iccid = ? AND nodeid = ?",
-                      (device.get('imei'), device.get('iccid'), device.get('routerId')))
+                      (device.get('networkInterfaceId'), device.get('iccId'), device.get('routerId')))
             result = c.fetchall()
             if len(result)>0:
                 c.execute("UPDATE node_interface SET status = ? "
                           "WHERE imei = ? AND iccid = ? AND nodeid = ?",
-                          (DEVICE_CURRENT, device.get('imei'), device.get('iccid'), device.get('routerId')))
+                          (DEVICE_CURRENT, device.get('networkInterfaceId'), device.get('iccId'), device.get('routerId')))
             else:
                 c.execute("INSERT INTO node_interface "
                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                          (device.get('routerId'), device.get('imei'),
-                           device.get('mcc')+device.get('mnc'), device.get('operator'),
-                           device.get('Iccid'),
+                          (device.get('routerId'), device.get('networkInterfaceId'),
+                           device.get('mcc')+device.get('mnc'), device.get('networkName'),
+                           device.get('iccId'),
                            0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
 
         for line in sql_extras.split(";"):
