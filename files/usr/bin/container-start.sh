@@ -59,7 +59,12 @@ COUNT=$(cat $BASEDIR/${SCHEDID}.counter 2>/dev/null || echo 0)
 COUNT=$(($COUNT + 1))
 echo $COUNT > $BASEDIR/${SCHEDID}.counter
 
-NODEID=$(</etc/nodeid)
+if [ -e /etc/nodeid.n2 ]; then
+  NODEIDFILE="/etc/nodeid.n2"
+else
+  NODEIDFILE="/etc/nodeid"
+fi
+NODEID=$(<$NODEIDFILE)
 IMAGEID=$(docker images -q --no-trunc monroe-$SCHEDID)
 
 if [ -z "$IMAGEID" ]; then
@@ -197,7 +202,7 @@ if [ ! -z "$IS_VM" ]; then
     mkdir -p $VM_CONF_DIR
     cp $BASEDIR/$SCHEDID/resolv.conf.tmp $VM_CONF_DIR/resolv.conf
     cp $BASEDIR/$SCHEDID.conf $VM_CONF_DIR/config
-    cp  /etc/nodeid $VM_CONF_DIR/nodeid
+    cp $NODEIDFILE $VM_CONF_DIR/nodeid
     cp /tmp/dnsmasq-servers-netns-monroe.conf $VM_CONF_DIR/dns
     echo "ok."
 
@@ -214,7 +219,7 @@ else
            --shm-size=1G \
            -v $BASEDIR/$SCHEDID/resolv.conf.tmp:/etc/resolv.conf \
            -v $BASEDIR/$SCHEDID.conf:/monroe/config:ro \
-           -v /etc/nodeid:/nodeid:ro \
+           -v ${NODEIDFILE}:/nodeid:ro \
            -v /tmp/dnsmasq-servers-netns-monroe.conf:/dns:ro \
            $MOUNT_DISK \
            $TSTAT_DISK \
