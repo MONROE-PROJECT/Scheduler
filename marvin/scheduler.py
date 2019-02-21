@@ -181,7 +181,7 @@ class Scheduler:
                     types.append((tag, value.lower().strip()))
 
             if node.get('countryName'):
-                address = "%s - %s %s" % (node.get('streetName','').strip(), node.get('countryName',''), node.get('zipCode','').strip())
+                address = "%s - %s %s" % ((node.get('streetName') or '').strip(), node.get('countryName',''), (node.get('zipCode') or '').strip())
                 types.append(('address', address))
             types.append(('type',status))
 
