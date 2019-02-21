@@ -154,7 +154,7 @@ class Scheduler:
             # update if exists
             tags = [x['tagName'] for x in node["allTags"]]
             status = NODE_DISABLED
-            if u'production' in tags or u'testing' in tags:
+            if u'deployed' in tags or u'testing' in tags:
                 status = NODE_ACTIVE
 
             types = []
@@ -183,7 +183,40 @@ class Scheduler:
             if node.get('countryName'):
                 address = "%s - %s %s" % ((node.get('streetName') or '').strip(), node.get('countryName',''), (node.get('zipCode') or '').strip())
                 types.append(('address', address))
-            types.append(('type',status))
+
+            nodetype = 'disabled'
+            if u'testing' in tags:
+              nodetype = 'testing'
+            if u'deployed' in tags:
+              nodetype = 'deployed'
+            if u'retired' in tags:
+              nodetype = 'retired'
+            if u'storage' in tags:
+              nodetype = 'storage'
+            if u'development' in tags:
+              nodetype = 'development'
+          
+            types.append(('type',nodetype))
+
+            c.execute("DELETE FROM node_type WHERE nodeid = ? AND volatile = 1",
+                      (node["routerId"],))
+            for tag, type_ in types:
+                c.execute(
+                    "INSERT OR IGNORE INTO node_type VALUES (?, ?, ?, ?)",
+                    (node["routerId"], tag, type_, 1))
+        self.db().commit()
+
+        devices1 = inventory_api("nodes/devices")
+
+        devices = []
+        for groupId in str(config.get('inventory',{}).get('group_ids','')).split(","):
+          devices.extend(n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupId="+groupId))
+
+        if not devices  and not devices1:
+            log.error("No devices returned from inventory.")
+            sys.exit(1)
+          
+            types.append(('type',nodetype))
 
             c.execute("DELETE FROM node_type WHERE nodeid = ? AND volatile = 1",
                       (node["routerId"],))
