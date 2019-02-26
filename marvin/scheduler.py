@@ -3,6 +3,7 @@
 import configuration
 import datetime
 from inventory import inventory_api
+from n2inventory import n2_inventory_api
 from itertools import chain
 import logging
 from logging.handlers import WatchedFileHandler
@@ -133,85 +134,156 @@ class Scheduler:
 
         last_sync = int(time.time())
         try:
-            nodes = inventory_api("nodes/status")
+            # FIXME: group id should become obsolete once permissions are fixed
+            nodes = n2_inventory_api("routers?limit=99999&includeDetails=true&groupIds="+str(config.get('inventory',{}).get('group_ids','')))
             if not nodes:
                 log.warning("No nodes returned from inventory.")
                 return
-        except:
+            if type(nodes)=='dict' and nodes['statusCode']==401:
+                log.warning("Inventory authentication failed.")
+                return
+        except Exception,e:
+            print e
             log.warning("Inventory synchronization failed.")
             return
 
         c = self.db().cursor()
-
         c.execute("UPDATE nodes SET status = ?", (NODE_MISSING,))
+
         for node in nodes:
             # update if exists
-            log.debug(node)
-            status = NODE_ACTIVE if node["Status"] == u'DEPLOYED' \
-                or node["Status"] == u'TESTING' \
-                else NODE_DISABLED
-            if node.get("ProjectName") in ["Celerway", "Monroe"]:
-                status = NODE_DISABLED
+            tags = [x['tagName'] for x in node["allTags"]]
+            status = NODE_DISABLED
+            if u'deployed' in tags or u'testing' in tags:
+                status = NODE_ACTIVE
+
+            types = []
             c.execute(
                 "UPDATE nodes SET hostname = ?, status = ? WHERE id = ?",
-                (node.get("Hostname"),
+                (node.get("hostname"),
                  status,
-                 node["NodeId"]))
+                 node["routerId"]))
             c.execute(
                 "INSERT OR IGNORE INTO nodes VALUES (?, ?, ?, ?)",
-                (node["NodeId"],
-                 node.get("Hostname"),
+                (node["routerId"],
+                 node.get("hostname"),
                     status,
                     0))
-            types = []
 
-            for key, tag in [('Country', 'country'),
-                             ('Model', 'model'),
-                             ('ProjectName', 'project'),
-                             ('Latitude', 'latitude'),
-                             ('Longitude', 'longitude'),
-                             ('ProjectName', 'site'),
-                             ('Status', 'type')]:
+            for key, tag in [('countryName', 'country'),
+                             ('model', 'model'),
+                             ('groupName', 'project'),
+                             ('groupName', 'site'),
+                             ('AddressGpsLatitude', 'latitude'),
+                             ('AddressGpsLongitude', 'longitude')]:
                 value = node.get(key)
                 if value is not None:
                     types.append((tag, value.lower().strip()))
-            if node.get('Country'):
-                address = "%s - %s %s" % (node.get('Address','').strip(), node.get('Country',''), node.get('PostCode','').strip())
+
+            if node.get('countryName'):
+                address = "%s - %s %s" % ((node.get('streetName') or '').strip(), node.get('countryName',''), (node.get('zipCode') or '').strip())
                 types.append(('address', address))
 
+            nodetype = 'disabled'
+            if u'testing' in tags:
+              nodetype = 'testing'
+            if u'deployed' in tags:
+              nodetype = 'deployed'
+            if u'retired' in tags:
+              nodetype = 'retired'
+            if u'storage' in tags:
+              nodetype = 'storage'
+            if u'development' in tags:
+              nodetype = 'development'
+          
+            types.append(('type',nodetype))
+
             c.execute("DELETE FROM node_type WHERE nodeid = ? AND volatile = 1",
-                      (node["NodeId"],))
+                      (node["routerId"],))
             for tag, type_ in types:
                 c.execute(
                     "INSERT OR IGNORE INTO node_type VALUES (?, ?, ?, ?)",
-                    (node["NodeId"], tag, type_, 1))
+                    (node["routerId"], tag, type_, 1))
+        self.db().commit()
 
-        devices = inventory_api("nodes/devices")
-        if not devices:
+        devices1 = inventory_api("nodes/devices")
+
+        devices = []
+        for groupId in str(config.get('inventory',{}).get('group_ids','')).split(","):
+          devices.extend(n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupId="+groupId))
+
+        if not devices  and not devices1:
+            log.error("No devices returned from inventory.")
+            sys.exit(1)
+          
+            types.append(('type',nodetype))
+
+            c.execute("DELETE FROM node_type WHERE nodeid = ? AND volatile = 1",
+                      (node["routerId"],))
+            for tag, type_ in types:
+                c.execute(
+                    "INSERT OR IGNORE INTO node_type VALUES (?, ?, ?, ?)",
+                    (node["routerId"], tag, type_, 1))
+        self.db().commit()
+
+        devices1 = inventory_api("nodes/devices")
+
+        devices = []
+        for groupId in str(config.get('inventory',{}).get('group_ids','')).split(","):
+          devices.extend(n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupId="+groupId))
+
+        if not devices  and not devices1:
             log.error("No devices returned from inventory.")
             sys.exit(1)
 
         c.execute("UPDATE node_interface SET status = ?", (DEVICE_HISTORIC,))
-        for device in devices:
+
+        #TODO: this insert will be obsolete once all devices are registered in nimbus2.
+        for device in devices1:
             if not device.get('Iccid'):
                 continue
             if not device.get('MccMnc'):
                 continue
 
+            n2id=str(int(device.get('NodeId'))+int(config.get('inventory',{}).get('n1_id_offset')))
+
             c.execute("SELECT * from node_interface "
                       "WHERE imei = ? AND iccid = ? AND nodeid = ?",
-                      (device.get('DeviceId'), device.get('Iccid'), device.get('NodeId')))
+                      (device.get('DeviceId'), device.get('Iccid'), n2id ))
             result = c.fetchall()
             if len(result)>0:
                 c.execute("UPDATE node_interface SET status = ? "
                           "WHERE imei = ? AND iccid = ? AND nodeid = ?",
-                          (DEVICE_CURRENT, device.get('DeviceId'), device.get('Iccid'), device.get('NodeId')))
+                          (DEVICE_CURRENT, device.get('DeviceId'), device.get('Iccid'), n2id ))
             else:
                 c.execute("INSERT INTO node_interface "
                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                          (device.get('NodeId'), device.get('DeviceId'),
+                          (n2id, device.get('DeviceId'),
                            device.get('MccMnc'), device.get('Operator'),
                            device.get('Iccid'),
+                           0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
+
+
+        for device in devices:
+            if not device.get('iccId'):
+                continue
+            if not device.get('mcc'):
+                continue
+
+            c.execute("SELECT * from node_interface "
+                      "WHERE imei = ? AND iccid = ? AND nodeid = ?",
+                      (device.get('networkInterfaceId'), device.get('iccId'), device.get('routerId')))
+            result = c.fetchall()
+            if len(result)>0:
+                c.execute("UPDATE node_interface SET status = ? "
+                          "WHERE imei = ? AND iccid = ? AND nodeid = ?",
+                          (DEVICE_CURRENT, device.get('networkInterfaceId'), device.get('iccId'), device.get('routerId')))
+            else:
+                c.execute("INSERT INTO node_interface "
+                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                          (device.get('routerId'), device.get('networkInterfaceId'),
+                           device.get('mcc')+device.get('mnc'), device.get('networkName'),
+                           device.get('iccId'),
                            0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
 
         for line in sql_extras.split(";"):
@@ -1253,7 +1325,7 @@ SELECT DISTINCT * FROM (
             preselection = opts.get("nodes").split(",")
 
         if opts.get('internal') is not None and \
-          u.get('ssl_id') != "c0004c4c44b2adc8a63d0b5ca62a7acd973198ba":
+          u.get('ssl_id') != "9c9217b34aa3ab247ee5f95790dfdb59bf86051b":
             return None, "option internal not allowed", {}
 
         ssh = 'ssh' in opts
