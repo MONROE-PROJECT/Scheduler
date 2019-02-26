@@ -92,6 +92,7 @@ if [ -f "/usr/bin/ykushcmd" ];then
     for port in 1 2 3; do
         /usr/bin/ykushcmd -d $port || echo "Could not down yepkit port : $port"
     done
+  fi
 fi
 ## Disable NEAT proxy ###
 if [[ ! -z "$NEAT_PROXY" ]]; then # If this is a experiment using the neat-proxy
