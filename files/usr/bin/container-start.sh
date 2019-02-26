@@ -84,15 +84,16 @@ if [ -f "/usr/bin/ykushcmd" ];then
     for port in 1 2 3; do
         /usr/bin/ykushcmd -u $port || echo "Could not power up yepkit port : $port"
     done
+    sleep 30 
 fi
 
 # Reset pycom devices 
 PYCOM_DIR="/dev/pycom"
 MOUNT_PYCOM=""
 if [ -d "$PYCOM_DIR" ]; then
-    echo "Trying to factory reset the board(s) (timeout 30 seconds)"
+    echo "Trying to factory reset the board(s) (timeout 30 seconds per board)"
     for board in $(ls $PYCOM_DIR); do
-        /usr/bin/factory-reset-pycom.py --device $PYCOM_DIR/$board --wait 30 --baudrate 115200
+    	timeout 35 /usr/bin/factory-reset-pycom.py --device $PYCOM_DIR/$board --wait 30 --baudrate 115200 || true
 	MOUNT_PYCOM="${MOUNT_PYCOM} --device $PYCOM_DIR/$board"
     done
 fi
