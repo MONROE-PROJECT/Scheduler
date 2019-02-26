@@ -91,9 +91,9 @@ PYCOM_DIR="/dev/pycom"
 MOUNT_PYCOM=""
 if [ -d "$PYCOM_DIR" ]; then
     echo "Trying to factory reset the board(s) (timeout 30 seconds)"
-    MOUNT_PYCOM="-v $PYCOM_DIR:$PYCOM_DIR"
     for board in $(ls $PYCOM_DIR); do
         /usr/bin/factory-reset-pycom.py --device $PYCOM_DIR/$board --wait 30 --baudrate 115200
+	MOUNT_PYCOM="${MOUNT_PYCOM} --device $PYCOM_DIR/$board"
     done
 fi
 
