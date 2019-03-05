@@ -1,5 +1,9 @@
 include files/etc/marvind.conf
 include files/etc/cron.d/*
+include files/etc/udev/rules.d/*
 include files/usr/bin/*.sh
+include files/usr/bin/*.py
+include files/usr/bin/ykushcmd
 include files/lib/systemd/system/marvind.service
+include files/lib/libhidapi-libusb.so.0
 include files/DEBIAN/*

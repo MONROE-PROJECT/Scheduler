@@ -85,6 +85,15 @@ if [[ ! -z "$VMIFHASH" ]]; then
   fi
 fi
 
+if [ -f "/usr/bin/ykushcmd" ];then
+  # Power off yepkit (assume we use yepkit only for pycom)
+  PYCOM_DIR="/dev/pycom"
+  if [ -d "$PYCOM_DIR" ]; then
+    for port in 1 2 3; do
+        /usr/bin/ykushcmd -d $port || echo "Could not down yepkit port : $port"
+    done
+  fi
+fi
 ## Disable NEAT proxy ###
 if [[ ! -z "$NEAT_PROXY" ]]; then # If this is a experiment using the neat-proxy
   rm -f /etc/circle.d/60-*-neat-proxy.rules

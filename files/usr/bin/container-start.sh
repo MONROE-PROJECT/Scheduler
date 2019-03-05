@@ -86,6 +86,27 @@ if [ ! -z "$EDUROAM_IDENTITY" ]; then
     /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH & 
 fi
 
+if [ -f "/usr/bin/ykushcmd" ];then 
+    # Power up all yepkit ports (assume pycom is only used for yepkit)"
+    # TODO: detect if yepkit is there and optionally which port a pycom device is attached to
+    echo "Power up all ports of the yepkit"
+    for port in 1 2 3; do
+        /usr/bin/ykushcmd -u $port || echo "Could not power up yepkit port : $port"
+    done
+    sleep 30 
+fi
+
+# Reset pycom devices 
+PYCOM_DIR="/dev/pycom"
+MOUNT_PYCOM=""
+if [ -d "$PYCOM_DIR" ]; then
+    echo "Trying to factory reset the board(s) (timeout 30 seconds per board)"
+    for board in $(ls $PYCOM_DIR); do
+    	timeout 35 /usr/bin/factory-reset-pycom.py --device $PYCOM_DIR/$board --wait 30 --baudrate 115200 || true
+	MOUNT_PYCOM="${MOUNT_PYCOM} --device $PYCOM_DIR/$board"
+    done
+fi
+
 ### START THE CONTAINER ###############################################
 
 echo -n "Starting container... "
@@ -221,6 +242,7 @@ else
            -v $BASEDIR/$SCHEDID.conf:/monroe/config:ro \
            -v ${NODEIDFILE}:/nodeid:ro \
            -v /tmp/dnsmasq-servers-netns-monroe.conf:/dns:ro \
+           $MOUNT_PYCOM \
            $MOUNT_DISK \
            $TSTAT_DISK \
            $CONTAINER $OVERRIDE_PARAMETERS)
