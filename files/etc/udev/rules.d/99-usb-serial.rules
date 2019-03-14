@@ -8,4 +8,4 @@ ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="601
 # Pytrack (F013)
 # Pyscan (EF38)
 # Expansionboard 3.0 (EF98)
-ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="04D8", ATTRS{idProduct}=="F012|F013|EF38|EF98", PROGRAM="/usr/bin/unique-num.sh /dev/pycom/ board", SYMLINK+="pycom/board%c"
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="04f8", ATTRS{idProduct}=="f012|f013|ef38|ef98", PROGRAM="/usr/bin/unique-num.sh /dev/pycom/ board", SYMLINK+="pycom/board%c"
