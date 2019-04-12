@@ -6,6 +6,7 @@ set -e
 SCHEDID=$1
 STATUS=$2
 CONTAINER=monroe-$SCHEDID
+UNWANTED_TASKS_AT_EXPERIMENT_START=("docker pull" "rsync" "ansible" "ansible-wrapper" "apt" "scp")
 
 BASEDIR=/experiments/user
 STATUSDIR=$BASEDIR
@@ -204,6 +205,13 @@ if [ ! -z "$NEAT_PROXY"  ]; then
     fi
    done
 fi
+
+### Stop tasks that can influence experiment results #####################
+echo "Stopping unwanted tasks/processes before starting experiment..."
+for task in "${UNWANTED_TASKS_AT_EXPERIMENT_START[@]}"; do
+   echo -n "$task: "
+   pkill -9 -f "$task" && echo "stopped" || echo "not running"
+done
 
 # drop all network traffic for 30 seconds (idle period)
 nohup /bin/bash -c 'sleep 35; circle start' > /dev/null &
