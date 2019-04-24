@@ -206,63 +206,15 @@ class Scheduler:
                     (node["routerId"], tag, type_, 1))
         self.db().commit()
 
-        devices1 = inventory_api("nodes/devices")
-
         devices = []
         for groupId in str(config.get('inventory',{}).get('group_ids','')).split(","):
           devices.extend(n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupId="+groupId))
 
-        if not devices  and not devices1:
-            log.error("No devices returned from inventory.")
-            sys.exit(1)
-          
-            types.append(('type',nodetype))
-
-            c.execute("DELETE FROM node_type WHERE nodeid = ? AND volatile = 1",
-                      (node["routerId"],))
-            for tag, type_ in types:
-                c.execute(
-                    "INSERT OR IGNORE INTO node_type VALUES (?, ?, ?, ?)",
-                    (node["routerId"], tag, type_, 1))
-        self.db().commit()
-
-        devices1 = inventory_api("nodes/devices")
-
-        devices = []
-        for groupId in str(config.get('inventory',{}).get('group_ids','')).split(","):
-          devices.extend(n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupId="+groupId))
-
-        if not devices  and not devices1:
+        if not devices:
             log.error("No devices returned from inventory.")
             sys.exit(1)
 
         c.execute("UPDATE node_interface SET status = ?", (DEVICE_HISTORIC,))
-
-        #TODO: this insert will be obsolete once all devices are registered in nimbus2.
-        for device in devices1:
-            if not device.get('Iccid'):
-                continue
-            if not device.get('MccMnc'):
-                continue
-
-            n2id=str(int(device.get('NodeId'))+int(config.get('inventory',{}).get('n1_id_offset')))
-
-            c.execute("SELECT * from node_interface "
-                      "WHERE imei = ? AND iccid = ? AND nodeid = ?",
-                      (device.get('DeviceId'), device.get('Iccid'), n2id ))
-            result = c.fetchall()
-            if len(result)>0:
-                c.execute("UPDATE node_interface SET status = ? "
-                          "WHERE imei = ? AND iccid = ? AND nodeid = ?",
-                          (DEVICE_CURRENT, device.get('DeviceId'), device.get('Iccid'), n2id ))
-            else:
-                c.execute("INSERT INTO node_interface "
-                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                          (n2id, device.get('DeviceId'),
-                           device.get('MccMnc'), device.get('Operator'),
-                           device.get('Iccid'),
-                           0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
-
 
         for device in devices:
             if not device.get('iccId'):

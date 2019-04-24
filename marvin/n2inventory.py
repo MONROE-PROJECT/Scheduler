@@ -16,30 +16,32 @@ log.addHandler(WatchedFileHandler(config['log']['file']))
 log.setLevel(config['log']['level'])
 
 def n2_inventory_api(route, data=None, method='GET'):
-    # STEP 1 - OAUTH API access
-    oauth_data={
+    try:
+      oauth_data={
                         'audience': config['inventory']['auth0_resource_server'],
                         'grant_type': 'client_credentials',
                         'client_id': config['inventory']['auth0_client_id'],
                         'client_secret': config['inventory']['auth0_client_secret']
-    }
-    r = requests.post('https://' + config['inventory']['auth0_domain'] + '/oauth/token',
-                      headers={'cache-control': 'no-cache', 'content-type': 'application/json'},
-                      json=oauth_data)
-    result = r.json()
-    token = result['access_token']
-
-    r = None
-    if (method=='GET'):
-      r = requests.get('https://' + config['inventory']['url'] + '/' + route,
-                       headers={'Authorization': 'Bearer '+token}, json=data)
-
-    try:
+      }
+      r = requests.post('https://' + config['inventory']['auth0_domain'] + '/oauth/token',
+                        headers={'cache-control': 'no-cache', 'content-type': 'application/json'},
+                        json=oauth_data, timeout=30)
       result = r.json()
-      log.debug("Reply: %s" % json.dumps(result))
-      return result
+      token = result['access_token']
+
+      r = None
+      if (method=='GET'):
+        r = requests.get('https://' + config['inventory']['url'] + '/' + route,
+                         headers={'Authorization': 'Bearer '+token}, json=data, timeout=30)
+
+      try:
+        result = r.json()
+        return result
+      except:
+        log.error("Could not authenticate with inventory.")
+        print r.status_code
+        print r.text
+        return None
     except:
-      log.error("Could not authenticate with inventory.")
-      print r.status_code
-      print r.text
+      log.error("Could not retrieve data from inventory (timeout?).")
       return None
