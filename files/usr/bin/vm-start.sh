@@ -54,7 +54,7 @@ echo "ok."
 # 1. Create the vtap interfaces
 # 2. Create the kvm cmd line to connect to said interfaces
 # 3. Create the guestfish cmd line to modify the vm to reflect the interfaces
-echo -n "vm-start: Enumerating the Interfaces: "
+echo "vm-start: Enumerating the Interfaces: "
 i=1
 KVMDEV=""
 GUESTFISHDEV=""
@@ -68,14 +68,21 @@ for IFNAME in ${INTERFACES}; do
   if [[ ${IFNAME} == "lo" ]]; then
     continue
   fi
+
+  IFIP=$($MNS ip -f inet addr show ${IFNAME} | grep -Po 'inet \K[\d.]+' || true )
   VTAPNAME=${VTAPPREFIX}${TRUNKED_HASHED_SCHEDID}-$i
-  
-  echo -n "${IFNAME} -> ${VTAPNAME}... "
+
+  echo -ne "\t${IFNAME} -> ${VTAPNAME}... "
+  if [[ -z "${IFIP}" ]]; then
+    echo "failed no ipaddress"
+    continue
+  fi
+
+
   $MNS ip link add link ${IFNAME} name ${VTAPNAME} type macvtap mode bridge
   #sleep 2
   $MNS ip link set dev ${VTAPNAME} up
 
-  IFIP=$($MNS ip -f inet addr show ${IFNAME} | grep -Po 'inet \K[\d.]+')
   VTAPID=$($MNS cat /sys/class/net/${VTAPNAME}/ifindex)
 
   IP="${IFIP%.*}.3"
@@ -101,8 +108,8 @@ sh \"/bin/echo 'ip rule add dev lo table ${MARK} pref 40000' >> /opt/monroe/setu
 sh \"/bin/echo 'ip route add ${NET} dev ${IFNAME} src ${IP} scope link table ${MARK}' >> /opt/monroe/setup-routing.sh\"
 sh \"/bin/echo 'ip route add default via ${GW} src ${IP} table ${MARK}' >> /opt/monroe/setup-routing.sh\""
   i=$((i + 1))
+  echo "ok"
 done
-echo "ok."
 
 echo -n "vm-start: Adding the shared directories: "
 # Add the mounts, these must correspond betwen vm and kvm cmd line
