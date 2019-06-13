@@ -72,7 +72,7 @@ if [[ -f $VM_TMP_FILE ]]; then # This file should NOT be here normaly
   echo "ok."
 fi
 
-VTAPS=$($MNS ls /sys/class/net/|grep "${VTAPPREFIX}-")
+VTAPS=$($MNS ls /sys/class/net/|grep "${VTAPPREFIX}")
 if [[ ! -z "$VTAPS" ]]; then 
   echo -n "Deleting vtap interfaces in $MNS..."
   for IFNAME in $VTAPS; do
