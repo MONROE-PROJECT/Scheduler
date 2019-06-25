@@ -39,4 +39,4 @@ ifconfig wlan0 up
 sleep 10
 dhclient -r wlan0
 dhclient wlan0
-
+/usr/bin/monroe-experiments || true

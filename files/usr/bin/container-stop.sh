@@ -52,7 +52,7 @@ else
   echo "Container is no longer running.";
 fi
 
-if [[ -f $BASEDIR/$SCHEDID.pid && -z "$RUNNING" ]]; then 
+if [[ -f $BASEDIR/$SCHEDID.pid && -z "$RUNNING" ]]; then
   echo -n "Killing vm (if any)... "
   PID=$(cat $BASEDIR/$SCHEDID.pid)
   kill -9 $PID  # Should be more graceful maybe
@@ -62,18 +62,18 @@ fi
 
 if [[ -f $VM_OS_DISK ]]; then # This file should always be here normaly
   echo -n "Deleting OS disk... "
-  rm -f $VM_OS_DISK 
+  rm -f $VM_OS_DISK
   echo "ok."
 fi
 
-if [[ -f $VM_TMP_FILE ]]; then # This file should NOT be here normaly 
+if [[ -f $VM_TMP_FILE ]]; then # This file should NOT be here normaly
   echo -n "Deleting ramdisk file... "
-  rm -f $VM_TMP_FILE 
+  rm -f $VM_TMP_FILE
   echo "ok."
 fi
 
 VTAPS=$($MNS ls /sys/class/net/|grep "${VTAPPREFIX}")
-if [[ ! -z "$VTAPS" ]]; then 
+if [[ ! -z "$VTAPS" ]]; then
   echo -n "Deleting vtap interfaces in $MNS..."
   for IFNAME in $VTAPS; do
     echo -n "${IFNAME}..."
@@ -95,14 +95,14 @@ fi
 if [[ ! -z "$NEAT_PROXY" ]]; then # If this is a experiment using the neat-proxy
   rm -f /etc/circle.d/60-*-neat-proxy.rules
   circle start
-  ## Stop the neta proxy container 
+  ## Stop the neta proxy container
   docker stop --time=10 monroe-neat-proxy
 fi
 
 sysevent -t Scheduling.Task.Stopped -k id -v $SCHEDID
 
 if [ -d $BASEDIR/$SCHEDID ]; then
-  if [ -z "$IS_VM" ]; then 
+  if [ -z "$IS_VM" ]; then
     echo "Retrieving container logs:"
     if [ ! -z "$CID" ]; then
       docker logs -t $CID &> $STATUSDIR/$SCHEDID/container.log;
@@ -162,6 +162,7 @@ if [ ! -z "$EDUROAM_IDENTITY" ]; then
     ifconfig wlan0 0.0.0.0 down
     echo "ok."
 fi
+$MNS ip link del wlan0 || true
 
 echo -n "Syncing results... "
 if [ ! -z "$IS_INTERNAL" ]; then
