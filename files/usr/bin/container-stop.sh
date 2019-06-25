@@ -154,15 +154,14 @@ docker rm $(docker ps -aq) 2>/dev/null
 docker rmi $(docker images -a|grep '^<none>'|awk "{print \$3}") 2>/dev/null
 echo "ok."
 
-if [ ! -z "$EDUROAM_IDENTITY" ]; then
-    echo -n "Deleting EDUROAM credentials... "
-    rm /etc/wpa_supplicant/wpa_supplicant.eduroam.conf
-    pkill wpa_supplicant
-    iwconfig wlan0 ap 00:00:00:00:00:00
-    ifconfig wlan0 0.0.0.0 down
-    echo "ok."
-fi
-$MNS ip link del wlan0 || true
+echo -n "Deleting EDUROAM credentials if any ... "
+rm /etc/wpa_supplicant/wpa_supplicant.eduroam.conf
+pkill wpa_supplicant
+iwconfig wlan0 ap 00:00:00:00:00:00
+ifconfig wlan0 0.0.0.0 down
+$MNS ip link del wlan0
+echo "ok."
+
 
 echo -n "Syncing results... "
 if [ ! -z "$IS_INTERNAL" ]; then

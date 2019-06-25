@@ -84,20 +84,20 @@ echo "ok."
 # setup eduroam if available
 
 if [ ! -z "$EDUROAM_IDENTITY" ]; then
-    /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH & 
+    timeout 30 /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH || echo "Failed connecting to eduroam"
 fi
 
-if [ -f "/usr/bin/ykushcmd" ];then 
+if [ -f "/usr/bin/ykushcmd" ];then
     # Power up all yepkit ports (assume pycom is only used for yepkit)"
     # TODO: detect if yepkit is there and optionally which port a pycom device is attached to
     echo "Power up all ports of the yepkit"
     for port in 1 2 3; do
         /usr/bin/ykushcmd -u $port || echo "Could not power up yepkit port : $port"
     done
-    sleep 30 
+    sleep 30
 fi
 
-# Reset pycom devices 
+# Reset pycom devices
 PYCOM_DIR="/dev/pycom"
 MOUNT_PYCOM=""
 if [ -d "$PYCOM_DIR" ]; then
@@ -140,9 +140,9 @@ fi
 cp /etc/resolv.conf $BASEDIR/$SCHEDID/resolv.conf.tmp
 
 ### NEAT PROXY #################################################
-# Delete existing rules if any 
+# Delete existing rules if any
 rm -f /etc/circle.d/60-*-neat-proxy.rules || true
-## Stop the neat proxy container if any 
+## Stop the neat proxy container if any
 docker stop --time=10 monroe-neat-proxy 2>/dev/null || true
 
 ## Copied from monroe-experiments #####
@@ -185,7 +185,7 @@ if [ ! -z "$NEAT_PROXY"  ]; then
     echo "is started"
     logger -t monroe-experiments "started neat-proxy container.";
   fi
-  
+
   for IF in $INTERFACES_BR; do
     if [ -z "$(ip link|grep ${IF}Br:)" ]; then
       # Firewall rules to set up TPROXY
@@ -247,7 +247,7 @@ if [ ! -z "$IS_VM" ]; then
     echo "Starting VM... "
     # Kicking alive the vm specific stuff
     /usr/bin/vm-start.sh $SCHEDID $OVERRIDE_PARAMETERS
-    echo "vm started." 
+    echo "vm started."
 else
     CID_ON_START=$(docker run -d $OVERRIDE_ENTRYPOINT  \
            --name=monroe-$SCHEDID \
