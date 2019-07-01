@@ -11,6 +11,10 @@ if [ ${#EDUROAM_HASH} -ge 100 ]; then
   logger -t eduroam_login "input (hash) too long.";
   exit
 fi
+# add quotes around the password, if it is not hashed
+if [[ "$EDUROAM_HASH" != "hash:"* ]]; then
+  EDUROAM_HASH='"'$EDUROAM_HASH'"';
+fi
 
 cat > /etc/wpa_supplicant/wpa_supplicant.eduroam.conf << EOF
 ap_scan=1
@@ -26,7 +30,7 @@ network={
         phase1="peaplabel=0"
         phase2="auth=MSCHAPV2"
         identity="$EDUROAM_IDENTITY"
-        password="$EDUROAM_HASH"
+        password=$EDUROAM_HASH
 }
 EOF
 
