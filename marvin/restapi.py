@@ -44,8 +44,8 @@ def error(message, code=None, extra={}):
 
 
 def set_headers(web):
-    web.header('Content-type', 'application/json')
-    web.header('API-Version', API_VERSION)
+    web.header('content-type', 'application/json')
+    web.header('api-version', API_VERSION)
 
 
 class ApiServer(web.application):

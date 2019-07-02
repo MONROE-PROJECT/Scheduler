@@ -25,10 +25,10 @@ def inventory_api(route, data=None):
           digestmod=hashlib.sha256
         ).hexdigest()
     headers = {
-        "Content-Type": "application/json",
-        "Client-Id": str(config['inventory']['n1_id']),
-        "Message-Timestamp": now,
-        "Message-Hash": hachee,
+        "content-type": "application/json",
+        "client-id": str(config['inventory']['n1_id']),
+        "message-timestamp": now,
+        "message-hash": hachee,
     }
     log.debug("API request %s with params %s" % (route, json.dumps(headers)))
     log.debug("Hashed message: %s" % message)
