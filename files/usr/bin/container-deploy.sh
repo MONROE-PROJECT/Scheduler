@@ -149,9 +149,9 @@ echo -n "Creating file system... "
 
 EXPDIR=$BASEDIR/$SCHEDID
 if [ ! -d $EXPDIR ]; then
-    mkdir -p $EXPDIR;
     dd if=/dev/zero of=$EXPDIR.disk bs=1000 count=$QUOTA_DISK_KB;
     mkfs.ext4 $EXPDIR.disk -F -L $SCHEDID;
+    mkdir -p $EXPDIR
 fi
 mountpoint -q $EXPDIR || {
     mount -t ext4 -o loop,data=journal,nodelalloc,barrier=1 $EXPDIR.disk $EXPDIR;
