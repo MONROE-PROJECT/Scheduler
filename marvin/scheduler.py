@@ -173,11 +173,13 @@ class Scheduler:
                              ('model', 'model'),
                              ('groupName', 'project'),
                              ('groupName', 'site'),
-                             ('AddressGpsLatitude', 'latitude'),
-                             ('AddressGpsLongitude', 'longitude')]:
+                             ('LastGpsLatitude', 'latitude'),                                                           
+                             ('LastGpsLongitude', 'longitude'),                                                         
+                             ('addressGpsLatitude', 'latitude'),  
+                             ('addressGpsLongitude', 'longitude')]:
                 value = node.get(key)
                 if value is not None:
-                    types.append((tag, value.lower().strip()))
+                    types.append((tag, str(value).lower().strip()))
 
             if node.get('countryName'):
                 address = "%s - %s %s" % ((node.get('streetName') or '').strip(), node.get('countryName',''), (node.get('zipCode') or '').strip())
@@ -194,6 +196,7 @@ class Scheduler:
               nodetype = 'storage'
             if u'development' in tags:
               nodetype = 'development'
+            print("IMPORTING {} AS {}".format(node.get('routerId'),nodetype))
           
             types.append(('type',nodetype))
 
@@ -216,6 +219,7 @@ class Scheduler:
         c.execute("UPDATE node_interface SET status = ?", (DEVICE_HISTORIC,))
 
         for device in devices:
+            print ("Importing DEVICE {}".format(device))
             if not device.get('iccId'):
                 continue
             if not device.get('mcc'):
