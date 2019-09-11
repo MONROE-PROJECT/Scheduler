@@ -382,6 +382,7 @@ class SchedulingClient:
             payload = json.dumps({'interfaces':post})
             requests.post('http://localhost:88/dlb', payload, timeout=GET_TIMEOUT)
         except:
+            log.debug("dlb or nginx are not running. Cannot retrieve interface data.")
             traceback.print_exc()
 
     def update_schedule(self, data):
