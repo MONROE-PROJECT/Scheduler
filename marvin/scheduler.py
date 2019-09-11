@@ -138,8 +138,11 @@ class Scheduler:
             if not nodes:
                 log.warning("No nodes returned from inventory.")
                 return
-            if type(nodes)=='dict' and nodes['statusCode']==401:
-                log.warning("Inventory authentication failed.")
+            if type(nodes) is dict and nodes['statusCode']==401:
+                log.error("Inventory authentication failed.")
+                return
+            if type(nodes) is dict and nodes['statusCode']==429:
+                log.error("Inventory authentication failed (rate limiting exceeded).")
                 return
         except Exception,e:
             print e
@@ -151,7 +154,7 @@ class Scheduler:
 
         for node in nodes:
             # update if exists
-            tags = [x['tagName'] for x in node["allTags"]]
+            tags = [x.get('tagName','') for x in node["allTags"]]
             status = NODE_DISABLED
             if u'deployed' in tags or u'testing' in tags:
                 status = NODE_ACTIVE
@@ -210,13 +213,20 @@ class Scheduler:
 
         devices = []
         for groupId in str(config.get('inventory',{}).get('group_ids','')).split(","):
-          devices.extend(n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupId="+groupId))
+          result = n2_inventory_api("networkinterfaces?limit=9999&operators=true&groupId="+groupId)
+
+          if type(result) is dict and result['statusCode']==429:
+            log.error("Inventory authentication failed (rate limiting exceeded, devices).")
+            return
+
+          devices.extend(result)
 
         if not devices:
             log.error("No devices returned from inventory.")
             sys.exit(1)
 
         c.execute("UPDATE node_interface SET status = ?", (DEVICE_HISTORIC,))
+
 
         for device in devices:
             print ("Importing DEVICE {}".format(device))

@@ -16,6 +16,7 @@ log.addHandler(WatchedFileHandler(config['log']['file']))
 log.setLevel(config['log']['level'])
 
 def n2_inventory_api(route, data=None, method='GET'):
+    print ("CALLING n2_inventory_api using %s %s %s" % (route,data,method))
     try:
       oauth_data={
                         'audience': config['inventory']['auth0_resource_server'],
@@ -41,6 +42,7 @@ def n2_inventory_api(route, data=None, method='GET'):
         log.error("Could not authenticate with inventory.")
         print r.status_code
         print r.text
+        print r.headers
         return None
     except:
       log.error("Could not retrieve data from inventory (timeout?).")
