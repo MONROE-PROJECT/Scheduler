@@ -109,7 +109,7 @@ class Resource:
 
         if role == scheduler.ROLE_NODE:
             if name != ("Node %s" % nodeid):
-                web.ctx.status = ''
+                web.ctx.status = '401 Unauthorized'
                 return error("Wrong user to update this status. (%s)" % name)
             now = int(time.time())
             maintenance = data.get('maintenance',0)
