@@ -30,7 +30,27 @@ from datetime import datetime
 from subprocess import Popen, PIPE
 
 sys.path.append('/usr/bin') # to import node utilities
-from interfaces import get_interfaces
+try:
+    from interfaces import get_interfaces
+except ImportError:
+    from pyroute2 import NetNS
+    from pyroute2 import IPRoute
+    def get_interfaces():
+        ns = NetNS('monroe')
+        rootns = IPRoute()
+	nsifaces = []
+	for link in ns.get_links():
+            ifname = dict(link['attrs'])['IFLA_IFNAME']
+            if ifname not in ['metadata', 'lo']:
+                nsifaces.append(ifname)
+        ifaces = []
+	for link in rootns.get_links():
+            mac = dict(link['attrs'])['IFLA_ADDRESS']
+            ifname = dict(link['attrs'])['IFLA_IFNAME']
+            if ifname in nsifaces:
+                ifaces.append({ "opname": ifname,"mac": mac })
+
+        return ifaces
 
 requests.packages.urllib3.disable_warnings()
 
@@ -169,7 +189,6 @@ class SchedulingClient:
             stdout=PIPE,
             stdin=PIPE)
         output, serr = pro.communicate()
-        print output
         print serr
         if pro.returncode == 0:
             self.set_status(id, "deployed")
@@ -360,6 +379,11 @@ class SchedulingClient:
         return jobs
 
     def update_routing(self, interfaces):
+        nlb = config.get("nlb-server", None)
+        if nlb is None:
+            log.warning("No network loadbalancer defined; default route unchanged")
+            return
+
         max_quota = -sys.maxsize-1
         best_if   = None
         managed_interfaces = []
