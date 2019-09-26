@@ -16,6 +16,8 @@ import simplejson as json
 import time
 import web
 import scheduler
+from OpenSSL import crypto
+import random
 
 config = configuration.select('marvinctld')
 
@@ -106,7 +108,6 @@ class Resource:
         nodeid = nodeid[1:]
         data = web.input()
         uid, role, name = rest_api.get_user(web.ctx)
-
         if role == scheduler.ROLE_NODE:
             if name != ("Node %s" % nodeid):
                 web.ctx.status = '401 Unauthorized'
@@ -116,7 +117,6 @@ class Resource:
             known = data.get('known_tasks',[])
             interfaces=json.loads(data.get('interfaces','[]'))
             rest_api.scheduler.update_node_status(nodeid, now, maintenance, interfaces)
-
             limit = int(data.get("limit", PREFETCH_COUNT))
             data = rest_api.scheduler.get_schedule(nodeid=nodeid, limit=limit, interfaces=True,
                                                    stop=now + PREFETCH_LIMIT, private=True,
@@ -250,7 +250,7 @@ class Schedule:
             web.ctx.status = '404 Not Found'
             return error("Could not find schedule entry with this id.")
         nodeid = tasks[0]['nodeid']
-        if name != ("Node %i" % nodeid):
+        if name != ("Node %s" % nodeid):
             web.ctx.status = '401 Unauthorized'
             return error("Wrong user to updated this status (%s)" % name)
         if 'status' in params:
@@ -577,6 +577,50 @@ class Backend:
             web.ctx.status = '200 Ok'
             keys = rest_api.scheduler.get_public_keys()
             return dumps(keys)
+        elif action.startswith("/nodeinfo/"):
+            nodeid = action.split('/')[2]
+            if nodeid is '':
+                web.ctx.status = '404 Not Found'
+                return error("Could not find user with that id.")
+
+            nodes = rest_api.scheduler.get_users(name="Node {}".format(nodeid))
+            if not nodes:
+                client_cert, client_key = rest_api.create_client_cert(nodeid)
+                # Save certificate
+                with open(config['ssl']['client-path'] + nodeid + ".crt", "wt") as f:
+                    f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, client_cert))
+
+                # Save private key
+                with open(config['ssl']['client-path'] + nodeid + ".key", "wt") as f:
+                    f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, client_key))
+
+                ssl_fingerprint = client_cert.digest("sha1").replace(':','').lower()
+                rest_api.scheduler.create_user("Node " + nodeid, ssl_fingerprint, scheduler.ROLE_NODE)
+
+                web.ctx.status = '200 Ok'
+                return dumps({
+                         "cert": crypto.dump_certificate(crypto.FILETYPE_PEM, client_cert),
+                         "key": crypto.dump_privatekey(crypto.FILETYPE_PEM, client_key),
+                         "fingerprint": ssl_fingerprint,
+                         "nodeid": nodeid
+                         })
+            else:
+		with open(config['ssl']['client-path'] + nodeid + ".key", "r") as f:
+                    client_key = crypto.load_privatekey(crypto.FILETYPE_PEM,f.read())
+                with open(config['ssl']['client-path'] + nodeid + ".crt", "r") as f:
+                    client_cert = crypto.load_certificate(crypto.FILETYPE_PEM,f.read())
+
+                ssl_fingerprint = nodes[0]['ssl_id']
+                #Assert here if file and db does not match
+                web.ctx.status = '200 Ok'
+                return dumps({
+                         "cert": crypto.dump_certificate(crypto.FILETYPE_PEM, client_cert),
+                         "key": crypto.dump_privatekey(crypto.FILETYPE_PEM, client_key),
+                         "fingerprint": ssl_fingerprint,
+                         "nodeid": nodeid
+                         })
+
+            return dumps(nodes)
         else:
             web.ctx.status = '404 Not Found'
             return error("Unknown request")
@@ -630,3 +674,29 @@ class RestAPI:
         if user is None or len(user) == 0:
             return None, None, None
         return user[0]['id'], user[0]['role'], user[0]['name']
+
+    def create_client_cert(self, nodeid):
+        with open(config['ssl']['ca-key'], "r") as f:
+            ca_key = crypto.load_privatekey(crypto.FILETYPE_PEM,f.read())
+        
+        with open(config['ssl']['ca-cert'], "r") as f:
+            ca_cert = crypto.load_certificate(crypto.FILETYPE_PEM,f.read())
+            ca_subj = ca_cert.get_subject()
+
+        client_key = crypto.PKey()
+        client_key.generate_key(crypto.TYPE_RSA, 2048)
+
+        client_cert = crypto.X509()
+        client_cert.set_version(2)
+        client_cert.set_serial_number(random.randint(50000000,100000000))
+
+        client_subj = client_cert.get_subject()
+        client_subj.commonName = nodeid
+
+        client_cert.set_issuer(ca_subj)
+        client_cert.set_pubkey(client_key)
+        client_cert.gmtime_adj_notBefore(0)
+        client_cert.gmtime_adj_notAfter(10*365*24*60*60)
+        client_cert.sign(ca_key, 'sha256')
+
+        return client_cert, client_key

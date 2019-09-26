@@ -123,13 +123,20 @@ class Scheduler:
 
     def __init__(self, refresh=False):
         self.check_db(refresh)
-        if config.get('inventory', {}).get('sync', True):
-            self.sync_inventory()
+        self.sync_inventory()
         self.refund_data_quotas()
         self.expire_lpq()
 
     def sync_inventory(self):
         global last_sync
+	print ("Trying to sync") 
+        if config.get('inventory', None) is None or not config['inventory'].get('sync', True):
+            log.warning("No inventory settings found.")
+            now = int(time.time())
+            c = self.db().cursor()
+            c.execute("UPDATE nodes SET status = ? where heartbeat < ?", (NODE_MISSING, now - config['heartbeat']))
+            self.db().commit()
+            return
 
         last_sync = int(time.time())
         try:
@@ -282,9 +289,9 @@ class Scheduler:
 
 PRAGMA journal_mode=WAL;
 
-CREATE TABLE IF NOT EXISTS nodes (id INTEGER PRIMARY KEY ASC,
+CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY,
     hostname TEXT NOT NULL, status TEXT, heartbeat INTEGER);
-CREATE TABLE IF NOT EXISTS node_type (nodeid INTEGER NOT NULL,
+CREATE TABLE IF NOT EXISTS node_type (nodeid TEXT NOT NULL,
     tag TEXT NOT NULL, type TEXT NOT NULL, volatile INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY (nodeid) REFERENCES nodes(id),
     PRIMARY KEY (nodeid, tag));
@@ -292,7 +299,7 @@ CREATE TABLE IF NOT EXISTS node_pair (headid INTEGER NOT NULL,
     tailid INTEGER NOT NULL,
     FOREIGN KEY (headid) REFERENCES nodes(id),
     FOREIGN KEY (tailid) REFERENCES nodes(id));
-CREATE TABLE IF NOT EXISTS node_interface (nodeid INTEGER NOT NULL,
+CREATE TABLE IF NOT EXISTS node_interface (nodeid TEXT NOT NULL,
     imei TEXT NOT NULL, mccmnc TEXT NOT NULL,
     operator TEXT NOT NULL, iccid TEXT NOT NULL,
     quota_current INTEGER NOT NULL,
@@ -323,7 +330,7 @@ CREATE TABLE IF NOT EXISTS experiments (id INTEGER PRIMARY KEY ASC,
     status TEXT,
     FOREIGN KEY (ownerid) REFERENCES owners(id));
 CREATE TABLE IF NOT EXISTS schedule (id TEXT PRIMARY KEY ASC,
-    nodeid INTEGER, expid INTEGER, start INTEGER, stop INTEGER,
+    nodeid TEXT, expid INTEGER, start INTEGER, stop INTEGER,
     status TEXT NOT NULL, shared INTEGER, deployment_options TEXT,
     FOREIGN KEY (nodeid) REFERENCES nodes(id),
     FOREIGN KEY (expid) REFERENCES experiments(id));
@@ -586,7 +593,7 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         report = dict([(x[0],x[1]) for x in c.fetchall()]) or None
         return report
 
-    def get_users(self, userid=None, ssl=None):
+    def get_users(self, userid=None, ssl=None, name=None):
         c = self.db().cursor()
         query = """SELECT o.*, t.current as quota_time,
                                d.current as quota_data,
@@ -602,6 +609,9 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
         elif userid is not None:
             self.check_quotas()
             c.execute(query + " where id = ?", (userid,))
+        elif name is not None:
+            self.check_quotas()
+            c.execute(query + " where name = ?", (name,))
         else:
             c.execute(query)
         userrows = c.fetchall()
@@ -1044,7 +1054,8 @@ CREATE INDEX IF NOT EXISTS k_expires    ON key_pairs(expires);
 
         # sync with inventory, refund quotas once per hour
         now = int(time.time())
-        if now - last_sync > 3600:
+        sync_now = now - last_sync > 3600 if config.get('inventory', None) is not None else now - last_sync > config['heartbeat']
+        if sync_now:
             self.sync_inventory()
             self.expire_lpq()
             self.node_pairs = None
@@ -1591,9 +1602,22 @@ UPDATE schedule SET status = ?, shared = 1 WHERE expid = ? AND
 
     def update_node_status(self, nodeid, seen, maintenance, interfaces):
         c = self.db().cursor()
-
         status = NODE_MAINTENANCE if maintenance == '1' else NODE_ACTIVE
-        c.execute("UPDATE nodes SET heartbeat=?, status=? where id=? and status!=? and status!=?", (seen, status, nodeid, NODE_DISABLED, NODE_MISSING))
+        if config.get('inventory', None) is None or not config['inventory'].get('sync', True):
+           c.execute(
+                "UPDATE nodes SET hostname = ?, status = ?, heartbeat = ?  WHERE id = ?",
+                 (nodeid,
+                 status,
+                 seen,
+                 nodeid))
+           c.execute(
+                "INSERT OR IGNORE INTO nodes VALUES (?, ?, ?, ?)",
+                (nodeid,
+                 nodeid,
+                 status,
+                 seen))
+        else:
+             c.execute("UPDATE nodes SET heartbeat=?, status=? where id=? and status!=? and status!=?", (seen, status, nodeid, NODE_DISABLED, NODE_MISSING))
         for iface in interfaces:
             iccid = iface.get('iccid')
             if iccid is not None:
