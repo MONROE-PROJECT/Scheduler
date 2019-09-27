@@ -18,7 +18,7 @@ import web
 import scheduler
 from OpenSSL import crypto
 import random
-
+import pyotp
 config = configuration.select('marvinctld')
 
 log = logging.getLogger('REST API')
@@ -579,10 +579,15 @@ class Backend:
             return dumps(keys)
         elif action.startswith("/nodeinfo/"):
             nodeid = action.split('/')[2]
+            data = web.input()
+            totp_key = data.get('totp', '')
+
             if nodeid is '':
                 web.ctx.status = '404 Not Found'
                 return error("Could not find user with that id.")
-
+            if not rest_api.totp.verify(totp_key):
+                web.ctx.status = '401 Unauthorized'
+                return error("Wrong totp key. {}".format(totp_key))
             nodes = rest_api.scheduler.get_users(name="Node {}".format(nodeid))
             if not nodes:
                 client_cert, client_key = rest_api.create_client_cert(nodeid)
@@ -605,13 +610,17 @@ class Backend:
                          "nodeid": nodeid
                          })
             else:
-		with open(config['ssl']['client-path'] + nodeid + ".key", "r") as f:
+                with open(config['ssl']['client-path'] + nodeid + ".key", "r") as f:
                     client_key = crypto.load_privatekey(crypto.FILETYPE_PEM,f.read())
                 with open(config['ssl']['client-path'] + nodeid + ".crt", "r") as f:
                     client_cert = crypto.load_certificate(crypto.FILETYPE_PEM,f.read())
 
-                ssl_fingerprint = nodes[0]['ssl_id']
-                #Assert here if file and db does not match
+                ssl_fingerprint = client_cert.digest("sha1").replace(':','').lower()
+                if ssl_fingerprint != nodes[0]['ssl_id']:
+                    id =  nodes[0]['id']
+                    rest_api.scheduler.delete_user(id)
+                    rest_api.scheduler.create_user("Node " + nodeid, ssl_fingerprint, scheduler.ROLE_NODE)
+
                 web.ctx.status = '200 Ok'
                 return dumps({
                          "cert": crypto.dump_certificate(crypto.FILETYPE_PEM, client_cert),
@@ -651,6 +660,7 @@ class RestAPI:
         global rest_api
         self.scheduler = scheduler
         rest_api = self
+        self.totp = pyotp.TOTP(config['selfregistrate']['key'])
 
     def stop(self):
         log.debug("Web server might take a second to shut down.")

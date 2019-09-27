@@ -28,6 +28,7 @@ import threading
 from hashlib import sha1 as sha
 from datetime import datetime
 from subprocess import Popen, PIPE
+import pyotp
 
 sys.path.append('/usr/bin') # to import node utilities
 try:
@@ -110,6 +111,7 @@ class SchedulingClient:
         cert_file = config['ssl']['cert']
         key_file = config['ssl']['key']
         self.cert = (cert_file, key_file)
+        self.totp = pyotp.TOTP(config['selfregistrate']['key'])
 
     def sysevent(self, eventType):
         try:
@@ -530,28 +532,53 @@ class SchedulingClient:
         self.statdir = config['status_directory']
         self.confdir = config['config_directory']
         self.known_taskids = []
+        cert_file, key_file = (self.cert)
 
         while True:
-            try:
-                result = requests.get(
-                    config['rest-server'] + "/backend/auth",
-                    data=None,
-                    cert=self.cert,
-                    verify=False,
-                    timeout=GET_TIMEOUT)
-                log.debug("Authenticated as %s" % result.text)
-                if result.status_code == 401:
-                    log.error("Node certificate not valid.")
-                    return
-                else:
-                    break
-            except IOError,ex:
-                if ex.errno == 2:
-                    log.error("Node certificate not found.")
-                    print "Error loading node certificate.", ex
-                else:
-                    print ex
-                    sys.exit(1)
+            if os.path.isfile(cert_file) and os.path.isfile(key_file):
+                try:
+                    result = requests.get(
+                        config['rest-server'] + "/backend/auth",
+                        data=None,
+                        cert=self.cert,
+                        verify=False,
+                        timeout=GET_TIMEOUT)
+                    log.debug("Authenticated as %s" % result.text)
+                    if result.status_code == 401:
+                        log.error("Node certificate not valid.")
+                        return
+                    else:
+                        break
+                except IOError,ex:
+                    if ex.errno == 2:
+                        log.error("Node certificate not found.")
+                        print "Error loading node certificate.", ex
+                    else:
+                        print ex
+                        sys.exit(1)
+            else:
+                try:
+                    result = requests.get(
+                        config['rest-server'] + "/backend/nodeinfo/" + str(self.ID),
+                        params={"totp":  self.totp.now() },
+                        data=None,
+                        verify=False,
+                        timeout=GET_TIMEOUT)
+                    log.debug("Node self registrated %s" % str(self.ID))
+                    data = result.json()
+                    cert = data.get("cert",None)
+                    key = data.get("key",None)
+                    nodeid = data.get("cert",None)
+
+                    with open(cert_file, "wt") as f:
+                        f.write(cert)
+                    with open(key_file, "wt") as f:
+                        f.write(key)
+
+                    continue
+                except Exception,e:
+                    print("Self registrate failed {}".format(e))
+ 
             time.sleep(300)
 
         self.sysevent(SYSEVENT_SCHEDULING_STARTED)
