@@ -154,7 +154,7 @@ class Scheduler:
 
         for node in nodes:
             # update if exists
-            tags = [x.get('tagName','') for x in node["allTags"]]
+            tags = [x for x in (node.get("allTagNames") or "").split(",")]
             status = NODE_DISABLED
             if u'deployed' in tags or u'testing' in tags:
                 status = NODE_ACTIVE
