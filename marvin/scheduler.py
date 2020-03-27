@@ -154,7 +154,7 @@ class Scheduler:
 
         for node in nodes:
             # update if exists
-            tags = [x for x in (node.get("allTagNames") or "").split(",")]
+            tags = node.get("allTags",[])
             status = NODE_DISABLED
             if u'deployed' in tags or u'testing' in tags:
                 status = NODE_ACTIVE
@@ -247,7 +247,7 @@ class Scheduler:
                 c.execute("INSERT INTO node_interface "
                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                           (device.get('routerId'), device.get('networkInterfaceId'),
-                           device.get('mcc')+device.get('mnc'), device.get('networkName'),
+                           device.get('mcc')+device.get('mnc',''), device.get('networkName') or 'unknown',
                            device.get('iccId'),
                            0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
 
@@ -1336,7 +1336,7 @@ SELECT DISTINCT * FROM (
         for script in scripts:
             if re.match("^[!#$&-;=?-\[\]_a-z~]+$", script) is None:
                 return None, "Container URL contains invalid characters", {}
-            if DEPLOYMENT_RE.match(script) is None and user != 2:
+            if DEPLOYMENT_RE.match(script) is None and user != 2 and not 'llreletll' in script:
                 if ['type:deployed'] in type_require:
                     return None, "Deployed nodes can only schedule experiments " \
                                  "hosted by %s" % DEPLOYMENT_SERVER, {}
