@@ -57,8 +57,8 @@ POLICY_TASK_MIN_RUNTIME = 60
 # task may not run for a maximum of # seconds
 POLICY_TASK_MAX_RUNTIME = 25 * 3600
 # recurrence may only happen with a minimum period of # seconds
-POLICY_TASK_MIN_RECURRENCE = 3600
-POLICY_TASK_STEP_RECURRENCE = 3600
+POLICY_TASK_MIN_RECURRENCE = 1200
+POLICY_TASK_STEP_RECURRENCE = 1200
 # scheduling may only happen # seconds in advance
 POLICY_SCHEDULING_PERIOD = 40 * 24 * 3600
 # scheduling may only happen # seconds after previous task
