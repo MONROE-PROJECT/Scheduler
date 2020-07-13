@@ -247,7 +247,7 @@ class Scheduler:
                 c.execute("INSERT INTO node_interface "
                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                           (device.get('routerId'), device.get('networkInterfaceId'),
-                           device.get('mcc')+device.get('mnc',''), device.get('networkName') or 'unknown',
+                           device.get('mcc')+device.get('mnc'), device.get('networkName') or 'unlisted',
                            device.get('iccId'),
                            0, 0, QUOTA_MONTHLY, 0, 0, DEVICE_CURRENT, 0, ''))
 
