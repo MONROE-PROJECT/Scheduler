@@ -34,18 +34,13 @@ def n2_inventory_api(route, data=None, method='GET'):
 
         if not token:
 
-            oauth_data={
-                        'audience': config['inventory']['auth0_resource_server'],
-                        'grant_type': 'client_credentials',
-                        'client_id': config['inventory']['auth0_client_id'],
-                        'client_secret': config['inventory']['auth0_client_secret']
-            }
-            r = requests.post('https://' + config['inventory']['auth0_domain'] + '/oauth/token',
-                        headers={'cache-control': 'no-cache', 'content-type': 'application/json'},
-                        json=oauth_data, timeout=30)
+            r = requests.post('https://' + config['inventory']['auth_domain'] + '/auth/realms/nimbus/protocol/openid-connect/token',
+                      auth=(config['inventory']['auth_client_id'], config['inventory','auth_client_secret']),
+                      data={'grant_type':'client_credentials'})
+
             result = r.json()
 
-            result['eol'] = int(time.time() + result.get('expires_in',0) - 2)
+            result['eol'] = int(time.time() + int(result['expires_in']))
 
             fd = open("/tmp/token","w");
             fd.write(json.dumps(result))
