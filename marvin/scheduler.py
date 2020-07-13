@@ -138,12 +138,16 @@ class Scheduler:
             if not nodes:
                 log.warning("No nodes returned from inventory.")
                 return
+            if type(nodes) is dict and nodes['statusCode']==500:
+                log.error("Internal server error while checking inventory.")
+                return
             if type(nodes) is dict and nodes['statusCode']==401:
                 log.error("Inventory authentication failed.")
                 return
             if type(nodes) is dict and nodes['statusCode']==429:
                 log.error("Inventory authentication failed (rate limiting exceeded).")
                 return
+                log.error(nodes)
         except Exception,e:
             print e
             log.warning("Inventory synchronization failed.")
