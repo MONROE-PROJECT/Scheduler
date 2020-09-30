@@ -84,7 +84,7 @@ echo "ok."
 # setup eduroam if available
 
 if [ ! -z "$EDUROAM_IDENTITY" ]; then
-    timeout 30 /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH || echo "Failed connecting to eduroam"
+    timeout 30 /usr/bin/eduroam-login.sh $EDUROAM_IDENTITY $EDUROAM_HASH && /usr/bin/monroe-experiments 2>/dev/null || echo "Failed connecting to eduroam"
 fi
 
 if [ -f "/usr/bin/ykushcmd" ];then
