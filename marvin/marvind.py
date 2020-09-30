@@ -186,6 +186,10 @@ class SchedulingClient:
                 self.set_status(id, "delayed; container downloading in background")
             elif pro.returncode == 105:  # EXPERIMENT RUNNING
                 self.set_status(id, "delayed; currently running another experiment")
+	    elif pro.returncode == 124:  # EXPERIMENT DEPLOY TIMEDOUT
+                self.set_status(id, "failed; container downloading timeout")
+	    else:  # Unknown Error
+                self.set_status(id, "failed; Unknown Error {}".format(pro.returncode))
             return
 
         now  = int(time.time())
