@@ -35,7 +35,7 @@ def n2_inventory_api(route, data=None, method='GET'):
         if not token:
 
             r = requests.post('https://' + config['inventory']['auth_domain'] + '/auth/realms/nimbus/protocol/openid-connect/token',
-                      auth=(config['inventory']['auth_client_id'], config['inventory','auth_client_secret']),
+                      auth=(config['inventory']['auth_client_id'], config['inventory']['auth_client_secret']),
                       data={'grant_type':'client_credentials'})
 
             result = r.json()
@@ -51,7 +51,7 @@ def n2_inventory_api(route, data=None, method='GET'):
         r = None
         if (method=='GET'):
           r = requests.get('https://' + config['inventory']['url'] + '/' + route,
-                           headers={'authorization': 'Bearer '+token}, json=data, timeout=30)
+                           headers={'authorization': 'Bearer '+token}, json=data, timeout=60)
 
         try:
           result = r.json()
@@ -62,6 +62,7 @@ def n2_inventory_api(route, data=None, method='GET'):
           print r.text
           print r.headers
           return None
-    except:
+    except Exception,ex:
+        log.error(ex)
         log.error("Could not retrieve data from inventory (timeout?).")
     return None
