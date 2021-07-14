@@ -220,7 +220,7 @@ if [ ! -z "$SYSCTL" ]; then
         sysctl -w net.core.rmem_default=${RMEM_DEFAULT}
     fi
     if [ ! -z "$RMEM_MAX" ]; then
-        sysctl -w net.core.rmem_default=${RMEM_MAX}
+        sysctl -w net.core.rmem_max=${RMEM_MAX}
     fi
 fi
 

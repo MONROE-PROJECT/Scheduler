@@ -195,8 +195,8 @@ if [ -f /tmp/rmem_default ]; then
     rm /tmp/rmem_default
 fi
 if [ -f /tmp/rmem_max ]; then
-    sysctl -w net.core.rmem_max=$(cat /tmp/rmem_default)
-    rm /tmp/rmem_default
+    sysctl -w net.core.rmem_max=$(cat /tmp/rmem_max)
+    rm /tmp/rmem_max
 fi
 
 ########################################################################
