@@ -22,6 +22,7 @@ if [ -f $BASEDIR/$SCHEDID.conf ]; then
   EDUROAM_HASH=$(echo $CONFIG | jq -r '._eduroam.hash // empty');
   IS_VM=$(echo $CONFIG | jq -r '.vm // empty');
   NEAT_PROXY=$(echo $CONFIG | jq -r '.neat // empty');
+  SYSCTL=$(echo $CONFIG | jq -r '.sysctl // empty');
 fi
 if [ ! -z "$IS_INTERNAL" ]; then
   BASEDIR=/experiments/monroe${BDEXT}
@@ -206,6 +207,23 @@ if [ ! -z "$NEAT_PROXY"  ]; then
    done
 fi
 
+### SYSCTL SETTINGS #################################################
+
+if [ ! -z "$SYSCTL" ]; then
+    cat /proc/sys/net/core/rmem_default > /tmp/rmem_default
+    cat /proc/sys/net/core/rmem_max > /tmp/rmem_max
+
+    RMEM_DEFAULT=$(echo $CONFIG | jq -r '.sysctl.rmem_default // empty');
+    RMEM_MAX=$(echo $CONFIG | jq -r '.sysctl.rmem_max // empty');
+
+    if [ ! -z "$RMEM_DEFAULT" ]; then
+        sysctl -w net.core.rmem_default=${RMEM_DEFAULT}
+    fi
+    if [ ! -z "$RMEM_MAX" ]; then
+        sysctl -w net.core.rmem_max=${RMEM_MAX}
+    fi
+fi
+
 ### Stop tasks that can influence experiment results #####################
 echo "Stopping unwanted tasks/processes before starting experiment..."
 for task in "${UNWANTED_TASKS_AT_EXPERIMENT_START[@]}"; do
@@ -222,7 +240,7 @@ for task in "${UNWANTED_TASKS_AT_EXPERIMENT_START[@]}"; do
    echo ""
 done
 
-if [[ ! $(hostname) == "nne"* ]]; then 
+if [[ ! $(hostname) == "nne"* ]]; then
   # drop all network traffic for 30 seconds (idle period)
   nohup /bin/bash -c 'sleep 35; circle start' > /dev/null &
   iptables -F

@@ -188,6 +188,19 @@ mv     $STATUSDIR/${SCHEDID}-status  $STATUSDIR/${SCHEDID}.status
 rm -r  $USAGEDIR/monroe-${SCHEDID}
 echo "ok."
 
+### RESTORE SYSCTL SETTINGS ############################################
+
+if [ -f /tmp/rmem_default ]; then
+    sysctl -w net.core.rmem_default=$(cat /tmp/rmem_default)
+    rm /tmp/rmem_default
+fi
+if [ -f /tmp/rmem_max ]; then
+    sysctl -w net.core.rmem_max=$(cat /tmp/rmem_max)
+    rm /tmp/rmem_max
+fi
+
+########################################################################
+
 echo -n "restorting firewall and modem state"
 circle restart
 for ip4table in $(modems|jq .[].ip4table); do
