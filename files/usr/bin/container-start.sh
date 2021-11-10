@@ -109,6 +109,15 @@ if [ -d "$PYCOM_DIR" ]; then
     done
 fi
 
+REQ_PORTS=$(echo $CONFIG | jq -r '.ports // empty');
+if [ "$REQ_PORTS" ]; then
+    PORT_FORWARDING="";
+    for sport in $(echo $REQ_PORTS|jq -r '.|keys[]'); do
+        dport=$(echo $REQ_PORTS|jq -r ".\"${sport}\"");
+        PORT_FORWARDING="$PORT_FORWARDING -p $sport:$dport";
+    done
+fi
+
 ### START THE CONTAINER ###############################################
 
 echo -n "Starting container... "
@@ -279,6 +288,7 @@ else
            -v $BASEDIR/$SCHEDID.conf:/monroe/config:ro \
            -v ${NODEIDFILE}:/nodeid:ro \
            -v /tmp/dnsmasq-servers-netns-monroe.conf:/dns:ro \
+           $PORT_FORWARDING \
            $MOUNT_PYCOM \
            $MOUNT_DISK \
            $TSTAT_DISK \
