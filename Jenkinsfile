@@ -27,8 +27,8 @@ node {
                     submoduleCfg: [],
                     userRemoteConfigs: [[url: 'git@github.com:Celerway/celerway-jenkins.git']]])
         }
-        docker.withRegistry('http://registry:5000') {
-            docker.image('registry:5000/jenkins-slave:monroe').inside('-u jenkins') {
+        withDockerRegistry(credentialsId: 'gcr:nimbus-tools-gcr', url: 'http://eu.gcr.io/nimbus-tools') {
+            docker.image('eu.gcr.io/nimbus-tools/monroe-builder:22.04').inside('-u jenkins') {
                 
                 stage ('Build') {
                   sh "python setup.py --command-packages=stdeb.command bdist_deb"
